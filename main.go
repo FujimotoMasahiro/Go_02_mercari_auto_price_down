@@ -9,7 +9,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -25,10 +27,13 @@ type TabInfo struct {
 }
 
 func main() {
+	fmt.Println("App Version:", Version)
+
 	// Chromeが既に開かれている場合はスキップする
 	if !isChromeRunning() {
 		// Chromeを開く
-		launchChrome()
+		cmd := launchChrome()
+		defer cmd.Process.Kill()
 	}
 
 	// 開いているタブのIDを取得
@@ -54,74 +59,94 @@ func main() {
 		return
 	}
 
-	fmt.Println("取得した商品ID:", itemIDs)
-
+	logPrice(ctx, itemIDs)
 	discountPrices(ctx, itemIDs)
-
+	logPrice(ctx, itemIDs)
 }
 
-// logPriceChanges は、与えられたメルカリ商品IDリストに対して、
-// 価格変更をせず、現在価格（Before）と、100円値引き後（After）をログに記録するだけの関数です。
-// 非公開商品の場合はスキップされます。
-func logPriceChanges(ctx context.Context, ids []string) error {
-	for _, id := range ids {
-		url := fmt.Sprintf("https://jp.mercari.com/sell/edit/%s", id)
-		fmt.Printf("確認中: %s\n", url)
+func logPrice(ctx context.Context, ids []string) error {
+	fmt.Printf("出品中の商品一覧からログファイル作成開始\n")
+	logDir := "MerucariLog"
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return err
+	}
+	logFileName := time.Now().Format("20060102150405") + ".log"
+	logFilePath := filepath.Join(logDir, logFileName)
+	logFile, err := os.Create(logFilePath)
+	if err != nil {
+		return err
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
 
-		var hasActivateBtn bool
-		var priceStr string
+	// 対象IDをセットで保持
+	idSet := make(map[string]bool)
+	for _, id := range ids {
+		idSet[id] = true
+	}
+
+	// 一覧ページに遷移
+	url := "https://jp.mercari.com/mypage/listings"
+	if err := chromedp.Run(ctx,
+		chromedp.Navigate(url),
+		chromedp.WaitVisible(`ul[data-testid="listed-item-list"]`, chromedp.ByQuery),
+	); err != nil {
+		return fmt.Errorf("一覧ページの読み込み失敗: %w", err)
+	}
+
+	// li要素の数を取得
+	var itemCount int
+	if err := chromedp.Run(ctx,
+		chromedp.Evaluate(`document.querySelectorAll('ul[data-testid="listed-item-list"] > li').length`, &itemCount),
+	); err != nil {
+		return fmt.Errorf("商品数の取得失敗: %w", err)
+	}
+
+	// 1商品ずつ処理
+	for i := 0; i < itemCount; i++ {
+
+		var href, name, priceText string
+		selPrefix := fmt.Sprintf(`ul[data-testid="listed-item-list"] > li:nth-child(%d)`, i+1)
 
 		err := chromedp.Run(ctx,
-			chromedp.Navigate(url),
-
-			// ページ読み込みを待機
-			chromedp.WaitVisible(`body`, chromedp.ByQuery),
-
-			// 非公開かどうかを確認
-			chromedp.EvaluateAsDevTools(`document.querySelector('button[data-testid="activate-button"]') !== null`, &hasActivateBtn),
-
-			// 非公開ならスキップ
-			chromedp.ActionFunc(func(ctx context.Context) error {
-				if hasActivateBtn {
-					fmt.Printf("商品 %s は非公開のためスキップします\n", id)
-					return chromedp.Cancel(ctx)
-				}
-				return nil
-			}),
-
-			// 現在価格の取得
-			chromedp.Value(`input[name="price"]`, &priceStr, chromedp.ByQuery),
+			chromedp.AttributeValue(selPrefix+` a`, "href", &href, nil, chromedp.ByQuery),
+			chromedp.Text(selPrefix+` p[data-testid="item-label"]`, &name, chromedp.ByQuery),
+			chromedp.Text(selPrefix+` span[data-testid="price"]`, &priceText, chromedp.ByQuery),
 		)
-
 		if err != nil {
-			if err == context.Canceled {
-				continue
-			}
-			log.Printf("商品 %s の確認中にエラー発生: %v\n", id, err)
+			log.Printf("商品 %d の取得エラー: %v\n", i, err)
 			continue
 		}
 
-		priceStr = strings.TrimSpace(priceStr)
-		price, err := strconv.Atoi(priceStr)
+		// IDを抽出して対象か確認
+		if !strings.HasPrefix(href, "/item/") {
+			continue
+		}
+		id := strings.TrimPrefix(href, "/item/")
+		if !idSet[id] {
+			continue
+		}
+
+		// 価格パース
+		priceText = strings.ReplaceAll(priceText, ",", "")
+		priceText = strings.ReplaceAll(priceText, "円", "")
+		priceText = strings.ReplaceAll(priceText, "¥\n", "")
+		priceText = strings.TrimSpace(priceText)
+		price, err := strconv.Atoi(priceText)
 		if err != nil {
 			log.Printf("商品 %s の価格取得失敗: %v\n", id, err)
 			continue
 		}
 
-		// 値引き後の価格（下限1500円）
-		newPrice := price - 100
-		if newPrice < 1500 {
-			newPrice = 1500
-		}
-
-		// ログ出力のみ（変更はしない）
-		fmt.Printf("商品 %s：現在価格（Before）=%d円 / 値引き後（After）=%d円\n", id, price, newPrice)
+		log.Printf("商品 %s：商品名「%s」 現在価格（Before）=%d円\n", id, name, price)
 	}
+
+	fmt.Printf("出品中の商品一覧からログファイル作成終了\n")
 	return nil
 }
 
 // discountPrices は、与えられたメルカリ商品IDの一覧に対して、
-// 各商品の価格を100円値引き（ただし1500円未満にはしない）し、保存する関数です。
+// 各商品の価格を値引き（ただし最低価格未満にはしない）し、保存する関数です。
 // 非公開の商品（「出品を再開する」ボタンが表示されている商品）はスキップされます。
 func discountPrices(ctx context.Context, ids []string) error {
 	for _, id := range ids {
@@ -161,34 +186,56 @@ func discountPrices(ctx context.Context, ids []string) error {
 			continue
 		}
 
-		// 新しい価格を計算（100円値引き、ただし1500円未満にはしない）
-		newPrice := price - 100
-		if newPrice < 1500 {
-			newPrice = 1500
+		// 新しい価格を計算（値引き、ただし最低価格未満にはしない）
+		newPrice := price - PriceDecreaseAmount
+		if newPrice < MinPrice {
+			newPrice = MinPrice
 		}
 
 		fmt.Printf("商品 %s の価格を %d → %d に値引きします\n", id, price, newPrice)
 
 		// 新しい価格を入力して「変更する」ボタンをクリック
-		err = chromedp.Run(ctx,
-			// 対象の入力欄を focus（反応を起こさせる）
-			chromedp.Focus(`input[name="price"]`, chromedp.ByQuery),
+		if viewFlg {
+			err = chromedp.Run(ctx,
+				// 対象の入力欄を focus（反応を起こさせる）
+				chromedp.Focus(`input[name="price"]`, chromedp.ByQuery),
 
-			// 古い値をクリア（Backspace 連打で消す）
-			chromedp.SetValue(`input[name="price"]`, "", chromedp.ByQuery),
+				// 少し待機（適宜調整）
+				chromedp.Sleep(waitTime*time.Second),
 
-			// 新しい値を入力
-			chromedp.SendKeys(`input[name="price"]`, strconv.Itoa(newPrice), chromedp.ByQuery),
+				// 古い値をクリア（Backspace 連打で消す）
+				chromedp.SetValue(`input[name="price"]`, "", chromedp.ByQuery),
 
-			// blur イベントで「入力終了」処理を発火させる
-			chromedp.Blur(`input[name="price"]`, chromedp.ByQuery),
+				// 新しい値を入力
+				chromedp.SendKeys(`input[name="price"]`, strconv.Itoa(newPrice), chromedp.ByQuery),
 
-			// 「変更する」ボタンをクリック
-			chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
+				// blur イベントで「入力終了」処理を発火させる
+				chromedp.Blur(`input[name="price"]`, chromedp.ByQuery),
 
-			// 少し待機（適宜調整）
-			chromedp.Sleep(2*time.Second),
-		)
+				// 「変更する」ボタンをクリック
+				chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
+
+				// 少し待機（適宜調整）
+				chromedp.Sleep(waitTime*time.Second),
+			)
+		} else {
+			err = chromedp.Run(ctx,
+				// 対象の入力欄を focus（反応を起こさせる）
+				chromedp.Focus(`input[name="price"]`, chromedp.ByQuery),
+
+				// 古い値をクリア（Backspace 連打で消す）
+				chromedp.SetValue(`input[name="price"]`, "", chromedp.ByQuery),
+
+				// 新しい値を入力
+				chromedp.SendKeys(`input[name="price"]`, strconv.Itoa(newPrice), chromedp.ByQuery),
+
+				// blur イベントで「入力終了」処理を発火させる
+				chromedp.Blur(`input[name="price"]`, chromedp.ByQuery),
+
+				// 「変更する」ボタンをクリック
+				chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
+			)
+		}
 		if err != nil {
 			log.Printf("商品 %s の価格変更時にエラー: %v\n", id, err)
 			continue
@@ -346,27 +393,38 @@ func loginChrome(ctxt context.Context) {
 	log.Printf("Page title: %s", pageTitle)
 }
 
-func launchChrome() {
-	cmd := exec.Command(
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", // ← フルパスに変更
-		"--remote-debugging-port=9222",
-		"--user-data-dir=/tmp/chrome-debug",
-		"--no-first-run", "--no-default-browser-check",
-	)
+func launchChrome() *exec.Cmd {
 
-	// Chrome をバックグラウンドで起動
+	view := "--headless=new" // ← これがウィンドウ非表示
+	var cmd *exec.Cmd
+	if viewFlg {
+		cmd = exec.Command(
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"--remote-debugging-port=9222",
+			"--user-data-dir=/tmp/chrome-debug",
+			"--no-first-run", "--no-default-browser-check",
+		)
+	} else {
+		cmd = exec.Command(
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"--remote-debugging-port=9222",
+			"--user-data-dir=/tmp/chrome-debug",
+			"--no-first-run", "--no-default-browser-check",
+			view,
+		)
+	}
+
 	if err := cmd.Start(); err != nil {
 		log.Fatalf("Failed to start Chrome: %v", err)
 	}
-	// defer cmd.Process.Kill()
 	log.Println("Chrome process started...")
 
-	// ポート開放待ち（最大10秒）
 	if err := waitForPort("localhost:9222", 10*time.Second); err != nil {
 		log.Fatalf("Chrome didn't open port in time: %v", err)
 	}
 
 	log.Println("Chrome is ready to accept DevTools Protocol connections.")
+	return cmd
 }
 
 func waitForPort(address string, timeout time.Duration) error {
