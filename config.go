@@ -8,7 +8,7 @@ const (
 	PriceDecreaseAmount = 100
 
 	// Chromeのウィンドウを表示するか(ヘッドレス起動)
-	// 値段変更の処理をユーザーに見えやすく配慮するか
+	// ヘッドレス起動か true:通常起動 false:ヘッドレス起動
 	viewFlg = true
 
 	// 値下げ処理の待ち時間(s)

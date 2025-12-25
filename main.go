@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,10 +30,12 @@ type TabInfo struct {
 func main() {
 	fmt.Println("App Version:", Version)
 
+	var cmd *exec.Cmd
+
 	// Chromeが既に開かれている場合はスキップする
 	if !isChromeRunning() {
 		// Chromeを開く
-		cmd := launchChrome()
+		cmd = launchChrome()
 		defer cmd.Process.Kill()
 	}
 
@@ -45,10 +48,11 @@ func main() {
 	defer cancel2()
 
 	// メルカリにログイン(手動)
-	loginChrome(ctx)
+	chromeAnkerMerucari(ctx)
 
 	// 出品した商品一覧画面に遷移する
 	itemIDs, _ := NavigateToMercariMyPageListings(ctx)
+	fmt.Println("対象商品数:", len(itemIDs))
 
 	// ログイン画面が表示された場合は処理を中断する（手動ログインさせる）
 	if ng, err := IsLoginDomain(ctx); err != nil {
@@ -64,6 +68,8 @@ func main() {
 	logPrice(ctx, itemIDs)
 }
 
+// logPrice は、与えられたメルカリ商品IDの一覧に対して、
+// 各商品の現在の価格情報をログファイルに記録する関数です。
 func logPrice(ctx context.Context, ids []string) error {
 	fmt.Printf("出品中の商品一覧からログファイル作成開始\n")
 	logDir := "MerucariLog"
@@ -149,10 +155,16 @@ func logPrice(ctx context.Context, ids []string) error {
 // 各商品の価格を値引き（ただし最低価格未満にはしない）し、保存する関数です。
 // 非公開の商品（「出品を再開する」ボタンが表示されている商品）はスキップされます。
 func discountPrices(ctx context.Context, ids []string) error {
+	count := 0
 	for _, id := range ids {
+		count++
+		fmt.Printf("対象商品数: %d\n", count)
 		// 編集画面URLを生成
 		url := fmt.Sprintf("https://jp.mercari.com/sell/edit/%s", id)
 		fmt.Printf("Processing %s\n", url)
+
+		// 価格入力欄のセレクタ
+		node_price := `input[name="price"]`
 
 		// 出品停止中かどうかの判定フラグ、および現在の価格
 		var hasActivateBtn bool
@@ -166,7 +178,7 @@ func discountPrices(ctx context.Context, ids []string) error {
 				`document.querySelector('button[data-testid="activate-button"]') !== null`,
 				&hasActivateBtn,
 			),
-			chromedp.Value(`input[name="price"]`, &priceStr, chromedp.ByQuery),
+			chromedp.Value(node_price, &priceStr, chromedp.ByQuery),
 		)
 		if err != nil {
 			log.Printf("商品 %s の処理中にエラー発生: %v\n", id, err)
@@ -187,62 +199,48 @@ func discountPrices(ctx context.Context, ids []string) error {
 		}
 
 		// 新しい価格を計算（値引き、ただし最低価格未満にはしない）
-		newPrice := price - PriceDecreaseAmount
-		if newPrice < MinPrice {
-			newPrice = MinPrice
-		}
+		newPrice := int(math.Round(float64(price) / 100 * 99))
 
 		fmt.Printf("商品 %s の価格を %d → %d に値引きします\n", id, price, newPrice)
 
+		timeoutCtx, cancelTimeout := context.WithTimeout(ctx, 8*time.Second)
+		defer cancelTimeout()
+
 		// 新しい価格を入力して「変更する」ボタンをクリック
-		if viewFlg {
-			err = chromedp.Run(ctx,
-				// 対象の入力欄を focus（反応を起こさせる）
-				chromedp.Focus(`input[name="price"]`, chromedp.ByQuery),
+		err = chromedp.Run(timeoutCtx,
+			// 表示を待つ
+			chromedp.WaitVisible(node_price, chromedp.ByQuery),
 
-				// 少し待機（適宜調整）
-				chromedp.Sleep(waitTime*time.Second),
+			// 少し待機（適宜調整）
+			chromedp.Sleep(waitTime*time.Second),
 
-				// 古い値をクリア（Backspace 連打で消す）
-				chromedp.SetValue(`input[name="price"]`, "", chromedp.ByQuery),
+			// 対象の入力欄を focus（反応を起こさせる）
+			chromedp.Focus(node_price, chromedp.ByQuery),
 
-				// 新しい値を入力
-				chromedp.SendKeys(`input[name="price"]`, strconv.Itoa(newPrice), chromedp.ByQuery),
+			// // 新しい値を入力
+			chromedp.SendKeys(node_price, strconv.Itoa(newPrice), chromedp.ByQuery),
 
-				// blur イベントで「入力終了」処理を発火させる
-				chromedp.Blur(`input[name="price"]`, chromedp.ByQuery),
+			// blur イベントで「入力終了」処理を発火させる
+			chromedp.Blur(node_price, chromedp.ByQuery),
 
-				// 「変更する」ボタンをクリック
-				chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
+			// 「変更する」ボタンをクリック
+			chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
 
-				// 少し待機（適宜調整）
-				chromedp.Sleep(waitTime*time.Second),
-			)
-		} else {
-			err = chromedp.Run(ctx,
-				// 対象の入力欄を focus（反応を起こさせる）
-				chromedp.Focus(`input[name="price"]`, chromedp.ByQuery),
-
-				// 古い値をクリア（Backspace 連打で消す）
-				chromedp.SetValue(`input[name="price"]`, "", chromedp.ByQuery),
-
-				// 新しい値を入力
-				chromedp.SendKeys(`input[name="price"]`, strconv.Itoa(newPrice), chromedp.ByQuery),
-
-				// blur イベントで「入力終了」処理を発火させる
-				chromedp.Blur(`input[name="price"]`, chromedp.ByQuery),
-
-				// 「変更する」ボタンをクリック
-				chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
-			)
-		}
+			// 少し待機（適宜調整）
+			chromedp.Sleep(waitTime*time.Second),
+		)
 		if err != nil {
-			log.Printf("商品 %s の価格変更時にエラー: %v\n", id, err)
+			fmt.Printf("商品 %s の価格変更時にエラー: %v\n", id, err)
+			// タイムアウト or 失敗
+			chromedp.Run(ctx,
+				chromedp.Reload(),
+				chromedp.Sleep(2*time.Second),
+			)
 			continue
+		} else {
+			// 正常に変更されたことを出力
+			fmt.Printf("商品 %s の価格変更完了\n", id)
 		}
-
-		// 正常に変更されたことを出力
-		fmt.Printf("商品 %s の価格変更完了\n", id)
 	}
 	return nil
 }
@@ -261,11 +259,9 @@ func isChromeRunning() bool {
 func getContext(id string) (context.Context, context.CancelFunc, context.CancelFunc) {
 	// リモートデバッグポートに接続
 	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
-	// defer cancel() // 必要なら呼び出し元でcancelを扱う
 
 	// タブIDでContext作成
 	ctx, cancelCtx := chromedp.NewContext(allocCtx, chromedp.WithTargetID(target.ID(id)))
-	// defer cancelCtx() // 同上
 
 	return ctx, cancel, cancelCtx
 }
@@ -304,14 +300,27 @@ func NavigateToMercariMyPageListings(ctxt context.Context) ([]string, bool) {
 	var hrefs []map[string]string
 	var currentURL string
 	sel := `ul[data-testid="listed-item-list"] li a`
-	err := chromedp.Run(ctxt,
+
+	// ページ遷移して一覧が表示されるのを待つ
+	if err := chromedp.Run(ctxt,
 		chromedp.Navigate("https://jp.mercari.com/mypage/listings"),
 		chromedp.Location(&currentURL),
 		chromedp.Title(&pageTitle),
 		chromedp.WaitVisible(`ul[data-testid="listed-item-list"]`, chromedp.ByQuery),
+	); err != nil {
+		log.Fatalf("chromedp run error: %v", err)
+	}
+
+	// 「もっと見る」ボタンがあればクリックして追加アイテムを読み込む（関数化）
+	// maxClicks: 最大クリック回数、wait: クリック後の待機時間
+	if err := clickLoadMoreIfExists(ctxt, 10, 800*time.Millisecond); err != nil {
+		log.Printf("もっと見るクリック処理でエラー: %v", err)
+	}
+
+	// 最終的な a タグ属性を取得
+	if err := chromedp.Run(ctxt,
 		chromedp.AttributesAll(sel, &hrefs, chromedp.ByQueryAll), // aタグの属性取得
-	)
-	if err != nil {
+	); err != nil {
 		log.Fatalf("chromedp run error: %v", err)
 	}
 
@@ -364,21 +373,8 @@ func GetNewTabID() string {
 	return ""
 }
 
-func ensureTabID(ctx context.Context, id string) (string, error) {
-	if id != "" {
-		return id, nil
-	}
-
-	// 新しいタブを作成
-	newTabTarget, err := target.CreateTarget("about:blank").Do(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return newTabTarget.String(), nil
-}
-
-func loginChrome(ctxt context.Context) {
+// メルカリを開く
+func chromeAnkerMerucari(ctxt context.Context) {
 
 	// タスク：指定URLにアクセスしタイトルを取得する例
 	var pageTitle string
@@ -393,6 +389,7 @@ func loginChrome(ctxt context.Context) {
 	log.Printf("Page title: %s", pageTitle)
 }
 
+// Chromeを起動する関数
 func launchChrome() *exec.Cmd {
 
 	view := "--headless=new" // ← これがウィンドウ非表示
@@ -419,6 +416,7 @@ func launchChrome() *exec.Cmd {
 	}
 	log.Println("Chrome process started...")
 
+	// ポートを指定してChromeを起動
 	if err := waitForPort("localhost:9222", 10*time.Second); err != nil {
 		log.Fatalf("Chrome didn't open port in time: %v", err)
 	}
@@ -427,6 +425,7 @@ func launchChrome() *exec.Cmd {
 	return cmd
 }
 
+// waitForPort は、指定したアドレスのポートが開くまで待機するユーティリティ関数です。
 func waitForPort(address string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
@@ -441,3 +440,46 @@ func waitForPort(address string, timeout time.Duration) error {
 		time.Sleep(200 * time.Millisecond)
 	}
 }
+
+// clickLoadMoreIfExists は、ページ内に「もっと見る」ボタンがあればクリックして
+// 追加のアイテムを読み込むユーティリティ関数です。
+// - ctxt: chromedp のコンテキスト
+// - maxClicks: 安全のための最大クリック回数
+// - wait: クリック後に待機する時間（読み込み待ち）
+func clickLoadMoreIfExists(ctxt context.Context, maxClicks int, wait time.Duration) error {
+	// ボタンの有無判定＆クリックを行う簡単な JS を用意
+	jsClick := `(function(){
+        const btns = Array.from(document.querySelectorAll('button'));
+        for (const b of btns) {
+            if (b.innerText && b.innerText.trim().indexOf('もっと見る') !== -1) {
+                b.scrollIntoView();
+                b.click();
+                return true;
+            }
+        }
+        return false;
+    })()`
+
+	for i := 0; i < maxClicks; i++ {
+		var clicked bool
+		// JS を評価してボタンをクリック（見つからなければ false が返る）
+		if err := chromedp.Run(ctxt,
+			chromedp.Evaluate(jsClick, &clicked),
+		); err != nil {
+			return err
+		}
+
+		// ボタンがなければ終了
+		if !clicked {
+			return nil
+		}
+
+		// クリック後に読み込み待ち（必要であれば増やす）
+		time.Sleep(wait)
+	}
+
+	// 最大回数に到達して終了
+	return nil
+}
+
+// ...existing code...
