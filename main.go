@@ -10,13 +10,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
@@ -28,89 +27,106 @@ type TabInfo struct {
 }
 
 func main() {
-	fmt.Println("App Version:", Version)
+	var err error
+	appLogger, err = NewAppLogger()
+	if err != nil {
+		log.Fatalf("ロガー初期化失敗: %v", err)
+	}
+	defer appLogger.Close()
+
+	appLogger.Separator()
+	appLogger.Info("起動", fmt.Sprintf("バージョン %s 開始", Version), "OK")
 
 	var cmd *exec.Cmd
 
-	// Chromeが既に開かれている場合はスキップする
 	if !isChromeRunning() {
-		// Chromeを開く
+		appLogger.Info("起動", "Chrome起動", "開始")
 		cmd = launchChrome()
 		defer cmd.Process.Kill()
+	} else {
+		appLogger.Info("起動", "Chrome接続確認", "既に起動中")
 	}
 
-	// 開いているタブのIDを取得
 	id := GetNewTabID()
+	if id == "" {
+		appLogger.Error("起動", "タブID取得", "タブが見つかりません")
+		return
+	}
+	appLogger.Info("起動", "タブID取得", id)
 
-	//　タブ情報を元に操作用のタブを作製
 	ctx, cancel1, cancel2 := getContext(id)
 	defer cancel1()
 	defer cancel2()
 
-	// メルカリにログイン(手動)
-	chromeAnkerMerucari(ctx)
+	if err := chromeAnkerMerucari(ctx); err != nil {
+		appLogger.Error("メルカリTOP", "画面遷移", fmt.Sprintf("失敗: %v", err))
+		return
+	}
 
-	// 出品した商品一覧画面に遷移する
-	itemIDs, _ := NavigateToMercariMyPageListings(ctx)
-	fmt.Println("対象商品数:", len(itemIDs))
+	itemIDs, ok := NavigateToMercariMyPageListings(ctx)
+	appLogger.Info("出品一覧", "商品数取得", fmt.Sprintf("%d件", len(itemIDs)))
 
-	// ログイン画面が表示された場合は処理を中断する（手動ログインさせる）
+	if !ok {
+		appLogger.Warn("出品一覧", "画面遷移確認", "出品一覧ページではない可能性あり")
+	}
+
 	if ng, err := IsLoginDomain(ctx); err != nil {
-		log.Println("エラー:", err)
+		appLogger.Error("ログイン確認", "ドメイン確認", fmt.Sprintf("エラー: %v", err))
 		return
 	} else if ng {
-		log.Println("未ログインのためログインしてください")
+		appLogger.Warn("ログイン確認", "ログイン状態", "未ログイン - 手動ログインが必要です")
 		return
 	}
+	appLogger.Info("ログイン確認", "ログイン状態", "ログイン済み")
 
-	logPrice(ctx, itemIDs)
-	discountPrices(ctx, itemIDs)
-	logPrice(ctx, itemIDs)
+	appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き前)")
+	if err := logPrice(ctx, itemIDs); err != nil {
+		appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
+	}
+
+	appLogger.Info("値引き処理", "一括値引き", "開始")
+	if err := discountPrices(ctx, itemIDs); err != nil {
+		appLogger.Error("値引き処理", "一括値引き", fmt.Sprintf("失敗: %v", err))
+	} else {
+		appLogger.Info("値引き処理", "一括値引き", "完了")
+	}
+
+	appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き後)")
+	if err := logPrice(ctx, itemIDs); err != nil {
+		appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
+	}
+
+	appLogger.Info("終了", "全処理完了", "OK")
+	appLogger.Separator()
 }
 
-// logPrice は、与えられたメルカリ商品IDの一覧に対して、
-// 各商品の現在の価格情報をログファイルに記録する関数です。
+// logPrice は各商品の現在価格をログに記録します。
 func logPrice(ctx context.Context, ids []string) error {
-	fmt.Printf("出品中の商品一覧からログファイル作成開始\n")
-	logDir := "MerucariLog"
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return err
-	}
-	logFileName := time.Now().Format("20060102150405") + ".log"
-	logFilePath := filepath.Join(logDir, logFileName)
-	logFile, err := os.Create(logFilePath)
+	targetURL := "https://jp.mercari.com/mypage/listings"
+	statusCode, err := navigateWithStatus(ctx, targetURL,
+		chromedp.WaitVisible(`ul[data-testid="listed-item-list"]`, chromedp.ByQuery),
+	)
 	if err != nil {
-		return err
+		appLogger.Error("出品一覧(価格ログ)", "画面遷移", fmt.Sprintf("失敗: %v", err))
+		return fmt.Errorf("一覧ページの読み込み失敗: %w", err)
 	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
+	appLogger.Info("出品一覧(価格ログ)", "画面遷移", statusLabel(statusCode))
 
-	// 対象IDをセットで保持
 	idSet := make(map[string]bool)
 	for _, id := range ids {
 		idSet[id] = true
 	}
 
-	// 一覧ページに遷移
-	url := "https://jp.mercari.com/mypage/listings"
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate(url),
-		chromedp.WaitVisible(`ul[data-testid="listed-item-list"]`, chromedp.ByQuery),
-	); err != nil {
-		return fmt.Errorf("一覧ページの読み込み失敗: %w", err)
-	}
-
-	// li要素の数を取得
 	var itemCount int
 	if err := chromedp.Run(ctx,
 		chromedp.Evaluate(`document.querySelectorAll('ul[data-testid="listed-item-list"] > li').length`, &itemCount),
 	); err != nil {
+		appLogger.Error("出品一覧(価格ログ)", "商品数取得", fmt.Sprintf("失敗: %v", err))
 		return fmt.Errorf("商品数の取得失敗: %w", err)
 	}
+	appLogger.Info("出品一覧(価格ログ)", "商品数取得", fmt.Sprintf("%d件", itemCount))
 
-	// 1商品ずつ処理
 	for i := 0; i < itemCount; i++ {
-
 		var href, name, priceText string
 		selPrefix := fmt.Sprintf(`ul[data-testid="listed-item-list"] > li:nth-child(%d)`, i+1)
 
@@ -120,60 +136,56 @@ func logPrice(ctx context.Context, ids []string) error {
 			chromedp.Text(selPrefix+` span[data-testid="price"]`, &priceText, chromedp.ByQuery),
 		)
 		if err != nil {
-			log.Printf("商品 %d の取得エラー: %v\n", i, err)
+			appLogger.Warn("出品一覧(価格ログ)", fmt.Sprintf("商品%d情報取得", i+1), fmt.Sprintf("失敗: %v", err))
 			continue
 		}
 
-		// IDを抽出して対象か確認
 		if !strings.HasPrefix(href, "/item/") {
 			continue
 		}
-		id := strings.TrimPrefix(href, "/item/")
-		if !idSet[id] {
+		itemID := strings.TrimPrefix(href, "/item/")
+		if !idSet[itemID] {
 			continue
 		}
 
-		// 価格パース
 		priceText = strings.ReplaceAll(priceText, ",", "")
 		priceText = strings.ReplaceAll(priceText, "円", "")
 		priceText = strings.ReplaceAll(priceText, "¥\n", "")
 		priceText = strings.TrimSpace(priceText)
 		price, err := strconv.Atoi(priceText)
 		if err != nil {
-			log.Printf("商品 %s の価格取得失敗: %v\n", id, err)
+			appLogger.Warn("出品一覧(価格ログ)", fmt.Sprintf("商品%s 価格パース", itemID), fmt.Sprintf("失敗: %v", err))
 			continue
 		}
 
-		log.Printf("商品 %s：商品名「%s」 現在価格（Before）=%d円\n", id, name, price)
+		appLogger.Info("出品一覧(価格ログ)", fmt.Sprintf("商品 %s「%s」", itemID, name), fmt.Sprintf("%d円", price))
 	}
 
-	fmt.Printf("出品中の商品一覧からログファイル作成終了\n")
 	return nil
 }
 
-// discountPrices は、与えられたメルカリ商品IDの一覧に対して、
-// 各商品の価格を値引き（ただし最低価格未満にはしない）し、保存する関数です。
-// 非公開の商品（「出品を再開する」ボタンが表示されている商品）はスキップされます。
+// discountPrices は各商品を1%値引きします。
 func discountPrices(ctx context.Context, ids []string) error {
-	count := 0
-	for _, id := range ids {
-		count++
-		fmt.Printf("対象商品数: %d\n", count)
-		// 編集画面URLを生成
-		url := fmt.Sprintf("https://jp.mercari.com/sell/edit/%s", id)
-		fmt.Printf("Processing %s\n", url)
+	for i, id := range ids {
+		screen := fmt.Sprintf("商品編集:%s", id)
+		editURL := fmt.Sprintf("https://jp.mercari.com/sell/edit/%s", id)
 
-		// 価格入力欄のセレクタ
+		appLogger.Info(screen, fmt.Sprintf("(%d/%d) 画面遷移", i+1, len(ids)), editURL)
+
 		node_price := `input[name="price"]`
-
-		// 出品停止中かどうかの判定フラグ、および現在の価格
 		var hasActivateBtn bool
 		var priceStr string
 
-		// ページ遷移＆状態取得だけ行う
-		err := chromedp.Run(ctx,
-			chromedp.Navigate(url),
+		statusCode, err := navigateWithStatus(ctx, editURL,
 			chromedp.WaitVisible(`body`, chromedp.ByQuery),
+		)
+		if err != nil {
+			appLogger.Error(screen, "画面遷移", fmt.Sprintf("失敗: %v", err))
+			continue
+		}
+		appLogger.Info(screen, "画面遷移", statusLabel(statusCode))
+
+		err = chromedp.Run(ctx,
 			chromedp.EvaluateAsDevTools(
 				`document.querySelector('button[data-testid="activate-button"]') !== null`,
 				&hasActivateBtn,
@@ -181,71 +193,106 @@ func discountPrices(ctx context.Context, ids []string) error {
 			chromedp.Value(node_price, &priceStr, chromedp.ByQuery),
 		)
 		if err != nil {
-			log.Printf("商品 %s の処理中にエラー発生: %v\n", id, err)
+			appLogger.Error(screen, "商品情報取得", fmt.Sprintf("失敗: %v", err))
 			continue
 		}
 
-		// 非公開の場合はスキップ
 		if hasActivateBtn {
-			fmt.Printf("商品 %s は非公開のためスキップします\n", id)
+			appLogger.Warn(screen, "出品状態確認", "非公開のためスキップ")
 			continue
 		}
-		// 価格文字列を整数に変換
+
 		priceStr = strings.TrimSpace(priceStr)
 		price, err := strconv.Atoi(priceStr)
 		if err != nil {
-			log.Printf("商品 %s の価格取得失敗: %v\n", id, err)
+			appLogger.Error(screen, "現在価格取得", fmt.Sprintf("パース失敗: %v", err))
 			continue
 		}
 
-		// 新しい価格を計算（値引き、ただし最低価格未満にはしない）
 		newPrice := int(math.Round(float64(price) / 100 * 99))
 
-		fmt.Printf("商品 %s の価格を %d → %d に値引きします\n", id, price, newPrice)
+		if newPrice < MinPrice {
+			appLogger.Warn(screen, "値引き判定", fmt.Sprintf("%d円 → %d円 は最低価格%d円未満のためスキップ", price, newPrice, MinPrice))
+			continue
+		}
+
+		appLogger.Info(screen, "値引き実行", fmt.Sprintf("%d円 → %d円", price, newPrice))
 
 		timeoutCtx, cancelTimeout := context.WithTimeout(ctx, 8*time.Second)
 		defer cancelTimeout()
 
-		// 新しい価格を入力して「変更する」ボタンをクリック
 		err = chromedp.Run(timeoutCtx,
-			// 表示を待つ
 			chromedp.WaitVisible(node_price, chromedp.ByQuery),
-
-			// 少し待機（適宜調整）
 			chromedp.Sleep(waitTime*time.Second),
-
-			// 対象の入力欄を focus（反応を起こさせる）
 			chromedp.Focus(node_price, chromedp.ByQuery),
-
-			// // 新しい値を入力
 			chromedp.SendKeys(node_price, strconv.Itoa(newPrice), chromedp.ByQuery),
-
-			// blur イベントで「入力終了」処理を発火させる
 			chromedp.Blur(node_price, chromedp.ByQuery),
-
-			// 「変更する」ボタンをクリック
 			chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
-
-			// 少し待機（適宜調整）
 			chromedp.Sleep(waitTime*time.Second),
 		)
 		if err != nil {
-			fmt.Printf("商品 %s の価格変更時にエラー: %v\n", id, err)
-			// タイムアウト or 失敗
+			appLogger.Error(screen, "値引き実行", fmt.Sprintf("失敗(タイムアウト等): %v", err))
 			chromedp.Run(ctx,
 				chromedp.Reload(),
 				chromedp.Sleep(2*time.Second),
 			)
-			continue
 		} else {
-			// 正常に変更されたことを出力
-			fmt.Printf("商品 %s の価格変更完了\n", id)
+			appLogger.Info(screen, "値引き実行", "成功")
 		}
 	}
 	return nil
 }
 
-// すでにChromeが起動しているかどうかを確認する
+// navigateWithStatus はURLに遷移してHTTPステータスコードを返します。
+// additionalActions に WaitVisible 等の追加アクションを渡せます。
+func navigateWithStatus(ctx context.Context, targetURL string, additionalActions ...chromedp.Action) (int, error) {
+	statusCh := make(chan int, 10)
+
+	listenCtx, cancelListen := context.WithCancel(ctx)
+	defer cancelListen()
+
+	chromedp.ListenTarget(listenCtx, func(ev interface{}) {
+		if e, ok := ev.(*network.EventResponseReceived); ok {
+			select {
+			case statusCh <- int(e.Response.Status):
+			default:
+			}
+		}
+	})
+
+	actions := []chromedp.Action{
+		network.Enable(),
+		chromedp.Navigate(targetURL),
+	}
+	actions = append(actions, additionalActions...)
+
+	err := chromedp.Run(ctx, actions...)
+
+	var statusCode int
+	select {
+	case statusCode = <-statusCh:
+	default:
+		if err == nil {
+			statusCode = 200
+		}
+	}
+
+	return statusCode, err
+}
+
+// statusLabel はHTTPステータスコードを人間が読みやすい形に変換します。
+func statusLabel(code int) string {
+	switch {
+	case code == 200:
+		return "200 OK"
+	case code == 0:
+		return "ステータス取得不可"
+	default:
+		return fmt.Sprintf("%d", code)
+	}
+}
+
+// isChromeRunning は Chrome が既に起動しているかを確認します。
 func isChromeRunning() bool {
 	conn, err := net.DialTimeout("tcp", "localhost:9222", 500*time.Millisecond)
 	if err != nil {
@@ -255,20 +302,15 @@ func isChromeRunning() bool {
 	return true
 }
 
-// タブ情報のコンテキストを取得する
+// getContext はタブIDからchromedpコンテキストを生成します。
 func getContext(id string) (context.Context, context.CancelFunc, context.CancelFunc) {
-	// リモートデバッグポートに接続
 	allocCtx, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
-
-	// タブIDでContext作成
 	ctx, cancelCtx := chromedp.NewContext(allocCtx, chromedp.WithTargetID(target.ID(id)))
-
 	return ctx, cancel, cancelCtx
 }
 
-// 指定したタブのURLが login.jp.mercari.com ドメインかどうかを判定する
+// IsLoginDomain は現在のURLがログインページかを判定します。
 func IsLoginDomain(ctxt context.Context) (bool, error) {
-	// 現在のURLを取得
 	var currentURL string
 	err := chromedp.Run(ctxt,
 		chromedp.Location(&currentURL),
@@ -277,60 +319,55 @@ func IsLoginDomain(ctxt context.Context) (bool, error) {
 		return false, err
 	}
 
-	// URLをパースしてドメインを判定
 	parsedURL, err := url.Parse(currentURL)
 	if err != nil {
 		return false, err
 	}
 
 	domain := parsedURL.Hostname()
-	log.Printf("現在のドメイン: %s", domain)
+	appLogger.Info("ログイン確認", "現在のドメイン", domain)
 
-	// ドメインが login.jp.mercari.com の場合は true
 	return domain == "login.jp.mercari.com", nil
 }
 
-// MercariMyPageListingsへ遷移する関数
+// NavigateToMercariMyPageListings は出品一覧ページに遷移して商品IDを返します。
 func NavigateToMercariMyPageListings(ctxt context.Context) ([]string, bool) {
-
 	var itemIDs []string
+	listingsURL := "https://jp.mercari.com/mypage/listings"
 
-	// タスク：指定URLにアクセスしタイトルを取得する例
 	var pageTitle string
 	var hrefs []map[string]string
 	var currentURL string
 	sel := `ul[data-testid="listed-item-list"] li a`
 
-	// ページ遷移して一覧が表示されるのを待つ
-	if err := chromedp.Run(ctxt,
-		chromedp.Navigate("https://jp.mercari.com/mypage/listings"),
+	statusCode, err := navigateWithStatus(ctxt, listingsURL,
 		chromedp.Location(&currentURL),
 		chromedp.Title(&pageTitle),
 		chromedp.WaitVisible(`ul[data-testid="listed-item-list"]`, chromedp.ByQuery),
-	); err != nil {
+	)
+	if err != nil {
+		appLogger.Error("出品一覧", "画面遷移", fmt.Sprintf("失敗: %v", err))
 		log.Fatalf("chromedp run error: %v", err)
 	}
+	appLogger.Info("出品一覧", "画面遷移", statusLabel(statusCode))
+	appLogger.Info("出品一覧", "ページタイトル", pageTitle)
 
-	// 「もっと見る」ボタンがあればクリックして追加アイテムを読み込む（関数化）
-	// maxClicks: 最大クリック回数、wait: クリック後の待機時間
 	if err := clickLoadMoreIfExists(ctxt, 10, 800*time.Millisecond); err != nil {
-		log.Printf("もっと見るクリック処理でエラー: %v", err)
+		appLogger.Warn("出品一覧", "「もっと見る」クリック", fmt.Sprintf("エラー: %v", err))
 	}
 
-	// 最終的な a タグ属性を取得
 	if err := chromedp.Run(ctxt,
-		chromedp.AttributesAll(sel, &hrefs, chromedp.ByQueryAll), // aタグの属性取得
+		chromedp.AttributesAll(sel, &hrefs, chromedp.ByQueryAll),
 	); err != nil {
+		appLogger.Error("出品一覧", "商品リンク取得", fmt.Sprintf("失敗: %v", err))
 		log.Fatalf("chromedp run error: %v", err)
 	}
 
-	if currentURL != "https://jp.mercari.com/mypage/listings" {
+	if currentURL != listingsURL {
+		appLogger.Warn("出品一覧", "URL確認", fmt.Sprintf("想定外のURL: %s", currentURL))
 		return itemIDs, false
 	}
 
-	log.Printf("Page title: %s", pageTitle)
-
-	// 商品ID抽出
 	for _, attrs := range hrefs {
 		href := attrs["href"]
 		if strings.HasPrefix(href, "/item/") {
@@ -339,10 +376,11 @@ func NavigateToMercariMyPageListings(ctxt context.Context) ([]string, bool) {
 		}
 	}
 
+	appLogger.Info("出品一覧", "商品ID抽出", fmt.Sprintf("%d件", len(itemIDs)))
 	return itemIDs, true
 }
 
-// chrome://newtab/ の id を取得する関数（string型で返す）
+// GetNewTabID は操作対象のChromeタブIDを返します。
 func GetNewTabID() string {
 	resp, err := http.Get("http://localhost:9222/json")
 	if err != nil {
@@ -369,30 +407,26 @@ func GetNewTabID() string {
 		}
 	}
 
-	// 該当なし
 	return ""
 }
 
-// メルカリを開く
-func chromeAnkerMerucari(ctxt context.Context) {
-
-	// タスク：指定URLにアクセスしタイトルを取得する例
+// chromeAnkerMerucari はメルカリトップページを開きます。
+func chromeAnkerMerucari(ctxt context.Context) error {
 	var pageTitle string
-	err := chromedp.Run(ctxt,
-		chromedp.Navigate("https://jp.mercari.com/"),
+	statusCode, err := navigateWithStatus(ctxt, "https://jp.mercari.com/",
 		chromedp.Title(&pageTitle),
 	)
 	if err != nil {
-		log.Fatalf("chromedp run error: %v", err)
+		return err
 	}
-
-	log.Printf("Page title: %s", pageTitle)
+	appLogger.Info("メルカリTOP", "画面遷移", statusLabel(statusCode))
+	appLogger.Info("メルカリTOP", "ページタイトル", pageTitle)
+	return nil
 }
 
-// Chromeを起動する関数
+// launchChrome は Chrome をデバッグモードで起動します。
 func launchChrome() *exec.Cmd {
-
-	view := "--headless=new" // ← これがウィンドウ非表示
+	view := "--headless=new"
 	var cmd *exec.Cmd
 	if viewFlg {
 		cmd = exec.Command(
@@ -412,27 +446,28 @@ func launchChrome() *exec.Cmd {
 	}
 
 	if err := cmd.Start(); err != nil {
+		appLogger.Error("起動", "Chrome起動", fmt.Sprintf("失敗: %v", err))
 		log.Fatalf("Failed to start Chrome: %v", err)
 	}
-	log.Println("Chrome process started...")
+	appLogger.Info("起動", "Chromeプロセス開始", "OK")
 
-	// ポートを指定してChromeを起動
 	if err := waitForPort("localhost:9222", 10*time.Second); err != nil {
+		appLogger.Error("起動", "Chrome DevToolsポート待機", fmt.Sprintf("タイムアウト: %v", err))
 		log.Fatalf("Chrome didn't open port in time: %v", err)
 	}
 
-	log.Println("Chrome is ready to accept DevTools Protocol connections.")
+	appLogger.Info("起動", "Chrome DevTools接続準備", "完了 (port 9222)")
 	return cmd
 }
 
-// waitForPort は、指定したアドレスのポートが開くまで待機するユーティリティ関数です。
+// waitForPort は指定ポートが開くまで待機します。
 func waitForPort(address string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
 		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
-			return nil // 接続できたら完了
+			return nil
 		}
 		if time.Now().After(deadline) {
 			return err
@@ -441,13 +476,8 @@ func waitForPort(address string, timeout time.Duration) error {
 	}
 }
 
-// clickLoadMoreIfExists は、ページ内に「もっと見る」ボタンがあればクリックして
-// 追加のアイテムを読み込むユーティリティ関数です。
-// - ctxt: chromedp のコンテキスト
-// - maxClicks: 安全のための最大クリック回数
-// - wait: クリック後に待機する時間（読み込み待ち）
+// clickLoadMoreIfExists は「もっと見る」ボタンを繰り返しクリックします。
 func clickLoadMoreIfExists(ctxt context.Context, maxClicks int, wait time.Duration) error {
-	// ボタンの有無判定＆クリックを行う簡単な JS を用意
 	jsClick := `(function(){
         const btns = Array.from(document.querySelectorAll('button'));
         for (const b of btns) {
@@ -462,24 +492,20 @@ func clickLoadMoreIfExists(ctxt context.Context, maxClicks int, wait time.Durati
 
 	for i := 0; i < maxClicks; i++ {
 		var clicked bool
-		// JS を評価してボタンをクリック（見つからなければ false が返る）
 		if err := chromedp.Run(ctxt,
 			chromedp.Evaluate(jsClick, &clicked),
 		); err != nil {
 			return err
 		}
 
-		// ボタンがなければ終了
 		if !clicked {
 			return nil
 		}
 
-		// クリック後に読み込み待ち（必要であれば増やす）
+		appLogger.Info("出品一覧", fmt.Sprintf("「もっと見る」クリック (%d回目)", i+1), "OK")
 		time.Sleep(wait)
 	}
 
-	// 最大回数に到達して終了
 	return nil
 }
 
-// ...existing code...
