@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>メルカリ自動値引きツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3250;
+      --accent:    #ff6b35;
+      --accent-h:  #ff8c5a;
+      --green:     #22c55e;
+      --yellow:    #f59e0b;
+      --red:       #ef4444;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --console:   #0a0c14;
+      --radius:    12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 64px;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── Cards ───────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 18px;
+    }
+
+    /* ── Status row ─────────────────────────── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .badge.idle   { color: var(--green);  border-color: #16a34a33; background: #16a34a14; }
+    .badge.busy   { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge.busy .dot { animation: pulse 1s ease-in-out infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    .last-run {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* ── Run button ─────────────────────────── */
+    .run-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.02em;
+    }
+
+    .run-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .run-btn:active:not(:disabled) { transform: translateY(0); }
+    .run-btn:disabled {
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: not-allowed;
+      border: 1px solid var(--border);
+    }
+
+    .run-btn svg { flex-shrink: 0; }
+
+    /* ── Console ─────────────────────────────── */
+    .console-wrap {
+      position: relative;
+    }
+
+    .console-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .clear-btn {
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .clear-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    #console {
+      background: var(--console);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      height: 320px;
+      overflow-y: auto;
+      font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #a0aec0;
+      scroll-behavior: smooth;
+    }
+
+    #console .line-ok    { color: #68d391; }
+    #console .line-err   { color: #fc8181; }
+    #console .line-info  { color: #90cdf4; }
+    #console .line-done  { color: #fbd38d; font-weight: 600; }
+    #console .line-start { color: var(--accent); font-weight: 600; }
+
+    .console-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ── Log viewer ──────────────────────────── */
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .log-filename {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: monospace;
+    }
+
+    .refresh-btn {
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .refresh-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    #logViewer {
+      background: var(--console);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      height: 260px;
+      overflow-y: auto;
+      font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #718096;
+    }
+
+    /* ── Scrollbar ──────────────────────────── */
+    #console::-webkit-scrollbar,
+    #logViewer::-webkit-scrollbar { width: 6px; }
+    #console::-webkit-scrollbar-track,
+    #logViewer::-webkit-scrollbar-track { background: transparent; }
+    #console::-webkit-scrollbar-thumb,
+    #logViewer::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Footer ──────────────────────────────── */
+    footer {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏷️</div>
+  <div>
+    <h1>メルカリ 自動値引きツール</h1>
+    <p>メルカリの出品商品を一括で 1% 値引きします</p>
+  </div>
+</header>
+
+<!-- Status card -->
+<div class="card">
+  <div class="card-title">ステータス</div>
+  <div class="status-row">
+    <div class="badge idle" id="statusBadge">
+      <span class="dot"></span>
+      <span id="statusText">待機中</span>
+    </div>
+    <span class="last-run" id="lastRunText">最終実行: —</span>
+  </div>
+</div>
+
+<!-- Action card -->
+<div class="card">
+  <div class="card-title">操作</div>
+  <button class="run-btn" id="runBtn" onclick="runPriceDown()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"/>
+    </svg>
+    値引きを実行する
+  </button>
+</div>
+
+<!-- Console card -->
+<div class="card">
+  <div class="console-toolbar">
+    <div class="card-title" style="margin-bottom:0">実行ログ（リアルタイム）</div>
+    <button class="clear-btn" onclick="clearConsole()">クリア</button>
+  </div>
+  <div class="console-wrap">
+    <div id="console">
+      <div class="console-empty" id="consoleEmpty">実行ボタンを押すとここにログが表示されます</div>
+    </div>
+  </div>
+</div>
+
+<!-- Log file card -->
+<div class="card">
+  <div class="log-header">
+    <div class="card-title" style="margin-bottom:0">ログファイル</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="log-filename" id="logFilename"></span>
+      <button class="refresh-btn" onclick="loadLogs()">更新</button>
+    </div>
+  </div>
+  <div id="logViewer">読み込み中…</div>
+</div>
+
+<footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
+
+<script>
+  const consoleEl   = document.getElementById('console');
+  const consoleEmpty = document.getElementById('consoleEmpty');
+  const statusBadge = document.getElementById('statusBadge');
+  const statusText  = document.getElementById('statusText');
+  const lastRunText = document.getElementById('lastRunText');
+  const runBtn      = document.getElementById('runBtn');
+  const logViewer   = document.getElementById('logViewer');
+  const logFilename = document.getElementById('logFilename');
+
+  let isRunning = false;
+  let evtSource = null;
+  let lineCount = 0;
+
+  // ── SSE connection ──────────────────────────
+  function connectSSE() {
+    if (evtSource) evtSource.close();
+    evtSource = new EventSource('/events');
+    evtSource.onmessage = (e) => {
+      const msg = e.data;
+      if (msg === '__DONE__') {
+        setRunning(false);
+        loadLogs();
+        return;
+      }
+      appendLine(msg);
+    };
+    evtSource.onerror = () => {
+      // Reconnect after 3s
+      setTimeout(connectSSE, 3000);
+    };
+  }
+
+  // ── Run price-down ───────────────────────────
+  async function runPriceDown() {
+    if (isRunning) return;
+    clearConsole();
+    setRunning(true);
+
+    try {
+      const res = await fetch('/run', { method: 'POST' });
+      const data = await res.json();
+      if (res.status === 409) {
+        appendLine('⚠ すでに実行中です');
+        setRunning(true);
+      } else if (!res.ok) {
+        appendLine('ERROR: ' + (data.error || res.statusText));
+        setRunning(false);
+      }
+    } catch (err) {
+      appendLine('ERROR: ' + err.message);
+      setRunning(false);
+    }
+  }
+
+  // ── State helpers ────────────────────────────
+  function setRunning(running) {
+    isRunning = running;
+    runBtn.disabled = running;
+
+    if (running) {
+      statusBadge.className = 'badge busy';
+      statusText.textContent = '実行中…';
+      runBtn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        実行中…`;
+    } else {
+      statusBadge.className = 'badge idle';
+      statusText.textContent = '待機中';
+      lastRunText.textContent = '最終実行: ' + new Date().toLocaleTimeString('ja-JP');
+      runBtn.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        値引きを実行する`;
+    }
+  }
+
+  // ── Console output ───────────────────────────
+  function appendLine(text) {
+    if (lineCount === 0 && consoleEmpty) {
+      consoleEmpty.remove();
+    }
+    lineCount++;
+
+    const div = document.createElement('div');
+    div.className = lineClass(text);
+    div.textContent = text;
+    consoleEl.appendChild(div);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  function lineClass(text) {
+    const t = text.toLowerCase();
+    if (text.startsWith('[終了]'))  return 'line-done';
+    if (text.startsWith('[起動]'))  return 'line-start';
+    if (t.includes('error') || t.includes('エラー')) return 'line-err';
+    if (t.includes('成功') || t.includes('完了') || t.includes('ok')) return 'line-ok';
+    if (text.startsWith('[') || t.includes('info')) return 'line-info';
+    return '';
+  }
+
+  function clearConsole() {
+    consoleEl.innerHTML = '<div class="console-empty" id="consoleEmpty">実行ボタンを押すとここにログが表示されます</div>';
+    lineCount = 0;
+  }
+
+  // ── Log file ─────────────────────────────────
+  async function loadLogs() {
+    try {
+      const res  = await fetch('/logs');
+      const data = await res.json();
+      logViewer.textContent = data.content || '（ログなし）';
+      logViewer.scrollTop   = logViewer.scrollHeight;
+      logFilename.textContent = data.filename || '';
+    } catch (err) {
+      logViewer.textContent = 'ログを読み込めませんでした: ' + err.message;
+    }
+  }
+
+  // ── Sync status on load ───────────────────────
+  async function syncStatus() {
+    try {
+      const res  = await fetch('/status');
+      const data = await res.json();
+      if (data.running) setRunning(true);
+    } catch (_) {}
+  }
+
+  // ── Init ──────────────────────────────────────
+  connectSSE();
+  syncStatus();
+  loadLogs();
+
+  // Refresh log every 60s when idle
+  setInterval(() => { if (!isRunning) loadLogs(); }, 60_000);
+</script>
+</body>
+</html>
