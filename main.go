@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -143,9 +144,12 @@ func logPrice(ctx context.Context, ids []string) error {
 	}
 	defer csvFile.Close()
 
-	w := csv.NewWriter(csvFile)
-	defer w.Flush()
-	w.Write([]string{"商品ID", "商品名", "価格(円)"})
+	type itemRow struct {
+		id    string
+		name  string
+		price int
+	}
+	var rows []itemRow
 
 	for i := 0; i < itemCount; i++ {
 		var href, name, priceText string
@@ -179,7 +183,18 @@ func logPrice(ctx context.Context, ids []string) error {
 			continue
 		}
 
-		w.Write([]string{itemID, name, strconv.Itoa(price)})
+		rows = append(rows, itemRow{id: itemID, name: name, price: price})
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].id < rows[j].id
+	})
+
+	w := csv.NewWriter(csvFile)
+	defer w.Flush()
+	w.Write([]string{"商品ID", "商品名", "価格(円)"})
+	for _, r := range rows {
+		w.Write([]string{r.id, r.name, strconv.Itoa(r.price)})
 	}
 
 	appLogger.Info("出品一覧(価格CSV)", "CSV保存完了", csvFilePath)
