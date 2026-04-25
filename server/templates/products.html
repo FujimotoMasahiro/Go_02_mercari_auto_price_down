@@ -161,6 +161,19 @@
       text-align: right; font-family: "SF Mono","Menlo",monospace;
       font-weight: 600; color: var(--yellow); white-space: nowrap;
     }
+    td.img-cell {
+      width: 56px; padding: 8px 12px;
+    }
+    .thumb {
+      width: 40px; height: 40px;
+      object-fit: cover; border-radius: 6px; display: block;
+    }
+    .no-img {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      background: var(--surface2); border-radius: 6px;
+      font-size: 18px; opacity: .45;
+    }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--surface2); }
 
@@ -235,12 +248,13 @@
       <thead>
         <tr>
           <th>#</th>
+          <th>画像</th>
           <th>商品名</th>
           <th class="right">価格（円）</th>
         </tr>
       </thead>
       <tbody id="productBody">
-        <tr><td colspan="3" class="table-empty">
+        <tr><td colspan="4" class="table-empty">
           <span class="empty-icon">📦</span>
           読み込み中…
         </td></tr>
@@ -272,7 +286,7 @@
       const data = await res.json();
       renderTable(data.items || [], data.file || '');
     } catch (err) {
-      productBody.innerHTML = `<tr><td colspan="3" class="table-empty">
+      productBody.innerHTML = `<tr><td colspan="4" class="table-empty">
         <span class="empty-icon">⚠️</span>
         エラー: ${escHtml(err.message)}
       </td></tr>`;
@@ -283,7 +297,7 @@
     fileLabel.textContent = file || '（CSVなし）';
 
     if (!items || items.length === 0) {
-      productBody.innerHTML = `<tr><td colspan="3" class="table-empty">
+      productBody.innerHTML = `<tr><td colspan="4" class="table-empty">
         <span class="empty-icon">📦</span>
         商品データがありません。「CSV を更新する」を押して取得してください。
       </td></tr>`;
@@ -294,6 +308,11 @@
     productBody.innerHTML = items.map((item, i) => `
       <tr>
         <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+        <td class="img-cell">
+          ${item.imagePath
+            ? `<img src="${item.imagePath}" class="thumb" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'no-img',textContent:'📷'}))">`
+            : `<span class="no-img">📷</span>`}
+        </td>
         <td>${escHtml(item.name)}</td>
         <td class="price">¥${Number(item.price).toLocaleString('ja-JP')}</td>
       </tr>`).join('');

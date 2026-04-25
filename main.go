@@ -156,20 +156,22 @@ func logPrice(ctx context.Context, ids []string) error {
 	defer csvFile.Close()
 
 	type itemRow struct {
-		id    string
-		name  string
-		price int
+		id     string
+		name   string
+		price  int
+		imgSrc string
 	}
 	var rows []itemRow
 
 	for i := 0; i < itemCount; i++ {
-		var href, name, priceText string
+		var href, name, priceText, imgSrc string
 		selPrefix := fmt.Sprintf(`ul[data-testid="listed-item-list"] > li:nth-child(%d)`, i+1)
 
 		err := chromedp.Run(ctx,
 			chromedp.AttributeValue(selPrefix+` a`, "href", &href, nil, chromedp.ByQuery),
 			chromedp.Text(selPrefix+` p[data-testid="item-label"]`, &name, chromedp.ByQuery),
 			chromedp.Text(selPrefix+` span[data-testid="price"]`, &priceText, chromedp.ByQuery),
+			chromedp.Evaluate(fmt.Sprintf(`(function(){const img=document.querySelector(%q);return img?(img.src||img.dataset.src||''):'';})()`, selPrefix+` img`), &imgSrc),
 		)
 		if err != nil {
 			appLogger.Warn("出品一覧(価格CSV)", fmt.Sprintf("商品%d情報取得", i+1), fmt.Sprintf("失敗: %v", err))
@@ -194,7 +196,7 @@ func logPrice(ctx context.Context, ids []string) error {
 			continue
 		}
 
-		rows = append(rows, itemRow{id: itemID, name: name, price: price})
+		rows = append(rows, itemRow{id: itemID, name: name, price: price, imgSrc: imgSrc})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -209,7 +211,59 @@ func logPrice(ctx context.Context, ids []string) error {
 	}
 
 	appLogger.Info("出品一覧(価格CSV)", "CSV保存完了", csvFilePath)
+
+	// 商品画像をローカルに保存
+	imgDir := "img"
+	if err := os.MkdirAll(imgDir, 0755); err == nil {
+		httpClient := &http.Client{Timeout: 10 * time.Second}
+		for _, r := range rows {
+			if r.imgSrc == "" {
+				continue
+			}
+			ext := imageExt(r.imgSrc)
+			imgPath := filepath.Join(imgDir, r.id+ext)
+			if _, err := os.Stat(imgPath); err == nil {
+				continue // 既存ファイルはスキップ
+			}
+			req, err := http.NewRequest("GET", r.imgSrc, nil)
+			if err != nil {
+				continue
+			}
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+			req.Header.Set("Referer", "https://jp.mercari.com/")
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				appLogger.Warn("出品一覧(画像保存)", fmt.Sprintf("商品%s", r.id), fmt.Sprintf("取得失敗: %v", err))
+				continue
+			}
+			data, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				continue
+			}
+			if err := os.WriteFile(imgPath, data, 0644); err != nil {
+				appLogger.Warn("出品一覧(画像保存)", fmt.Sprintf("商品%s", r.id), fmt.Sprintf("保存失敗: %v", err))
+			} else {
+				appLogger.Info("出品一覧(画像保存)", fmt.Sprintf("商品%s", r.id), imgPath)
+			}
+		}
+	}
+
 	return nil
+}
+
+// imageExt はURLのパスから画像拡張子を返します。
+func imageExt(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" {
+		return ".jpg"
+	}
+	ext := strings.ToLower(filepath.Ext(u.Path))
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".webp", ".gif":
+		return ext
+	}
+	return ".jpg"
 }
 
 // discountPrices は各商品を1%値引きします。

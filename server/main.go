@@ -59,6 +59,9 @@ func main() {
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/products", handleProducts)
 	mux.HandleFunc("/csv-data", handleCSVData)
+	imgDir := filepath.Join(projectRoot(), "img")
+	os.MkdirAll(imgDir, 0755)
+	mux.Handle("/img/", http.StripPrefix("/img/", http.FileServer(http.Dir(imgDir))))
 	mux.HandleFunc("/run", handleRun)
 	mux.HandleFunc("/create-csv", handleCreateCSV)
 	mux.HandleFunc("/stop", handleStop)
@@ -84,9 +87,10 @@ func handleProducts(w http.ResponseWriter, r *http.Request) {
 
 // ProductItem は商品一覧の1行を表します。
 type ProductItem struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Price string `json:"price"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Price     string `json:"price"`
+	ImagePath string `json:"imagePath,omitempty"`
 }
 
 func handleCSVData(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +129,7 @@ func handleCSVData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	imgDir := filepath.Join(projectRoot(), "img")
 	var items []ProductItem
 	for i, row := range records {
 		if i == 0 {
@@ -133,7 +138,12 @@ func handleCSVData(w http.ResponseWriter, r *http.Request) {
 		if len(row) < 3 {
 			continue
 		}
-		items = append(items, ProductItem{ID: row[0], Name: row[1], Price: row[2]})
+		item := ProductItem{ID: row[0], Name: row[1], Price: row[2]}
+		// 保存済み画像があればパスを付与
+		if matches, _ := filepath.Glob(filepath.Join(imgDir, row[0]+".*")); len(matches) > 0 {
+			item.ImagePath = "/img/" + filepath.Base(matches[0])
+		}
+		items = append(items, item)
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
