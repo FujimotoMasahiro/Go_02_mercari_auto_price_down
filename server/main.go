@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	_ "embed"
+	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -31,6 +32,9 @@ type BuildTarget struct {
 //go:embed templates/index.html
 var indexHTML []byte
 
+//go:embed templates/products.html
+var productsHTML []byte
+
 //go:embed build_targets.json
 var buildTargetsJSON []byte
 
@@ -53,6 +57,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
+	mux.HandleFunc("/products", handleProducts)
+	mux.HandleFunc("/csv-data", handleCSVData)
 	mux.HandleFunc("/run", handleRun)
 	mux.HandleFunc("/create-csv", handleCreateCSV)
 	mux.HandleFunc("/stop", handleStop)
@@ -69,6 +75,71 @@ func main() {
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(indexHTML)
+}
+
+func handleProducts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(productsHTML)
+}
+
+// ProductItem は商品一覧の1行を表します。
+type ProductItem struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Price string `json:"price"`
+}
+
+func handleCSVData(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	csvDir := filepath.Join(projectRoot(), "CSV")
+	entries, err := os.ReadDir(csvDir)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"items": []ProductItem{}, "file": ""})
+		return
+	}
+
+	var csvFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".csv") {
+			csvFiles = append(csvFiles, e.Name())
+		}
+	}
+	if len(csvFiles) == 0 {
+		json.NewEncoder(w).Encode(map[string]interface{}{"items": []ProductItem{}, "file": ""})
+		return
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(csvFiles)))
+	latestFile := csvFiles[0]
+
+	f, err := os.Open(filepath.Join(csvDir, latestFile))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	records, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var items []ProductItem
+	for i, row := range records {
+		if i == 0 {
+			continue // skip header
+		}
+		if len(row) < 3 {
+			continue
+		}
+		items = append(items, ProductItem{ID: row[0], Name: row[1], Price: row[2]})
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"items": items,
+		"file":  latestFile,
+	})
 }
 
 func handleRun(w http.ResponseWriter, r *http.Request) {
