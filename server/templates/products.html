@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>商品一覧 — メルカリ自動値引きツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #22263a;
+      --border:   #2e3250;
+      --accent:   #ff6b35;
+      --green:    #22c55e;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --blue:     #60a5fa;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --console:  #0a0c14;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                   "Noto Sans JP", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 80px;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      width: 100%; max-width: 960px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 36px;
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 13px; font-weight: 600; text-decoration: none;
+      transition: color .15s, border-color .15s;
+      flex-shrink: 0;
+    }
+    .back-btn:hover { color: var(--text); border-color: var(--muted); }
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #059669, #047857);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Card ────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%; max-width: 960px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: 16px;
+    }
+
+    /* ── Action row ──────────────────────────── */
+    .action-row {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .update-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff; border: none; border-radius: var(--radius);
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+    .update-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+    .update-btn:active:not(:disabled) { transform: translateY(0); }
+    .update-btn:disabled {
+      background: var(--surface2); color: var(--muted);
+      cursor: not-allowed; border: 1px solid var(--border);
+    }
+    .file-label {
+      font-size: 12px; color: var(--muted);
+      font-family: "SF Mono","Fira Code","Menlo",monospace;
+    }
+    .file-label span { color: var(--blue); }
+
+    /* ── Status badge ────────────────────────── */
+    .badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; border: 1px solid;
+    }
+    .badge.idle   { color: var(--green);  border-color: #16a34a44; background: #16a34a14; }
+    .badge.busy   { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
+    .badge.done   { color: var(--blue);   border-color: #3b82f644; background: #3b82f614; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .badge.busy .dot { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Progress console ────────────────────── */
+    .progress-wrap { margin-top: 16px; display: none; }
+    .progress-wrap.visible { display: block; }
+    #progressConsole {
+      background: var(--console); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px; height: 160px;
+      overflow-y: auto;
+      font-family: "SF Mono","Fira Code","Menlo",monospace;
+      font-size: 12px; line-height: 1.65;
+      white-space: pre-wrap; word-break: break-all; color: #a0aec0;
+    }
+    #progressConsole .ln-ok    { color: #68d391; }
+    #progressConsole .ln-err   { color: #fc8181; }
+    #progressConsole .ln-info  { color: #90cdf4; }
+    #progressConsole .ln-done  { color: #fbd38d; font-weight: 600; }
+    #progressConsole .ln-start { color: var(--accent); font-weight: 600; }
+
+    /* ── Table ───────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 14px;
+    }
+    thead {
+      background: var(--surface2);
+      position: sticky; top: 0;
+    }
+    th {
+      padding: 12px 16px;
+      text-align: left; font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .07em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th.right { text-align: right; }
+    td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text); line-height: 1.4;
+    }
+    td.price {
+      text-align: right; font-family: "SF Mono","Menlo",monospace;
+      font-weight: 600; color: var(--yellow); white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    .table-empty {
+      text-align: center; padding: 48px 16px;
+      color: var(--muted); font-size: 14px;
+    }
+    .table-empty .empty-icon { font-size: 36px; display: block; margin-bottom: 12px; opacity: .5; }
+
+    /* ── Summary row ─────────────────────────── */
+    .summary {
+      font-size: 12px; color: var(--muted); margin-top: 12px; text-align: right;
+    }
+
+    /* Scrollbars */
+    #progressConsole::-webkit-scrollbar { width: 5px; }
+    #progressConsole::-webkit-scrollbar-track { background: transparent; }
+    #progressConsole::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    footer {
+      margin-top: 16px; font-size: 12px;
+      color: var(--muted); text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <a class="back-btn" href="/">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    TOP
+  </a>
+  <div class="logo">📋</div>
+  <div>
+    <h1>商品一覧</h1>
+    <p>CSVから商品名・価格を確認します</p>
+  </div>
+</header>
+
+<!-- CSV 更新カード -->
+<div class="card">
+  <div class="card-title">CSV 操作</div>
+  <div class="action-row">
+    <button class="update-btn" id="updateBtn" onclick="updateCSV()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      CSV を更新する
+    </button>
+    <div id="statusBadge" class="badge idle">
+      <span class="dot"></span>
+      <span id="statusText">待機中</span>
+    </div>
+    <div class="file-label">読込ファイル: <span id="fileLabel">—</span></div>
+  </div>
+  <div class="progress-wrap" id="progressWrap">
+    <div id="progressConsole"></div>
+  </div>
+</div>
+
+<!-- 商品一覧テーブル -->
+<div class="card">
+  <div class="card-title">商品一覧</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>商品名</th>
+          <th class="right">価格（円）</th>
+        </tr>
+      </thead>
+      <tbody id="productBody">
+        <tr><td colspan="3" class="table-empty">
+          <span class="empty-icon">📦</span>
+          読み込み中…
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="summary" id="summary"></div>
+</div>
+
+<footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
+
+<script>
+  const updateBtn    = document.getElementById('updateBtn');
+  const statusBadge  = document.getElementById('statusBadge');
+  const statusText   = document.getElementById('statusText');
+  const fileLabel    = document.getElementById('fileLabel');
+  const productBody  = document.getElementById('productBody');
+  const summary      = document.getElementById('summary');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressEl   = document.getElementById('progressConsole');
+
+  let isRunning = false;
+  let es = null;
+
+  // ── CSV データ読み込み ──────────────────────────
+  async function loadProducts() {
+    try {
+      const res  = await fetch('/csv-data');
+      const data = await res.json();
+      renderTable(data.items || [], data.file || '');
+    } catch (err) {
+      productBody.innerHTML = `<tr><td colspan="3" class="table-empty">
+        <span class="empty-icon">⚠️</span>
+        エラー: ${escHtml(err.message)}
+      </td></tr>`;
+    }
+  }
+
+  function renderTable(items, file) {
+    fileLabel.textContent = file || '（CSVなし）';
+
+    if (!items || items.length === 0) {
+      productBody.innerHTML = `<tr><td colspan="3" class="table-empty">
+        <span class="empty-icon">📦</span>
+        商品データがありません。「CSV を更新する」を押して取得してください。
+      </td></tr>`;
+      summary.textContent = '';
+      return;
+    }
+
+    productBody.innerHTML = items.map((item, i) => `
+      <tr>
+        <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+        <td>${escHtml(item.name)}</td>
+        <td class="price">¥${Number(item.price).toLocaleString('ja-JP')}</td>
+      </tr>`).join('');
+
+    summary.textContent = `${items.length} 件`;
+  }
+
+  // ── CSV 更新（バイナリ実行） ──────────────────────
+  async function updateCSV() {
+    if (isRunning) return;
+
+    setRunning(true);
+    progressWrap.classList.add('visible');
+    progressEl.innerHTML = '';
+
+    try {
+      const res  = await fetch('/create-csv', { method: 'POST' });
+      const data = await res.json();
+      if (res.status === 409) {
+        appendProgress('⚠ すでに実行中です');
+        setRunning(false);
+        return;
+      }
+      if (!res.ok) {
+        appendProgress('ERROR: ' + (data.error || res.statusText));
+        setRunning(false);
+        return;
+      }
+    } catch (err) {
+      appendProgress('ERROR: ' + err.message);
+      setRunning(false);
+      return;
+    }
+
+    connectSSE();
+  }
+
+  // ── SSE ──────────────────────────────────────────
+  function connectSSE() {
+    if (es) { es.close(); }
+    es = new EventSource('/events');
+    es.onmessage = (e) => {
+      if (e.data === '__DONE__') {
+        es.close();
+        es = null;
+        setRunning(false);
+        loadProducts();
+        return;
+      }
+      appendProgress(e.data);
+    };
+    es.onerror = () => {
+      es.close();
+      es = null;
+      setRunning(false);
+    };
+  }
+
+  // ── 状態管理 ─────────────────────────────────────
+  function setRunning(running) {
+    isRunning = running;
+    updateBtn.disabled = running;
+    if (running) {
+      statusBadge.className = 'badge busy';
+      statusText.textContent = '実行中…';
+    } else {
+      statusBadge.className = 'badge idle';
+      statusText.textContent = '待機中';
+    }
+  }
+
+  // ── プログレスコンソール ──────────────────────────
+  function appendProgress(text) {
+    const d = document.createElement('div');
+    d.className = lineClass(text);
+    d.textContent = text;
+    progressEl.appendChild(d);
+    progressEl.scrollTop = progressEl.scrollHeight;
+  }
+
+  function lineClass(t) {
+    const l = t.toLowerCase();
+    if (t.startsWith('[終了]'))  return 'ln-done';
+    if (t.startsWith('[起動]'))  return 'ln-start';
+    if (l.includes('error') || l.includes('エラー')) return 'ln-err';
+    if (l.includes('成功') || l.includes('完了') || l.includes('ok')) return 'ln-ok';
+    if (t.startsWith('['))       return 'ln-info';
+    return '';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── 初期化 ───────────────────────────────────────
+  loadProducts();
+</script>
+</body>
+</html>
