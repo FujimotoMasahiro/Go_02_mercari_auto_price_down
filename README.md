@@ -8,7 +8,7 @@ macOS の launchd により、毎日 **10:00 AM** に自動実行されます。
 
 ログは `Log/launchd_stdout.log` / `Log/launchd_stderr.log` に出力されます。
 
-### 管理コマンド
+### バッチ実行の管理コマンド
 
 ```bash
 # 停止・解除
