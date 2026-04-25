@@ -37,6 +37,7 @@ func main() {
 	mux.HandleFunc("/stop", handleStop)
 	mux.HandleFunc("/status", handleStatus)
 	mux.HandleFunc("/logs", handleLogs)
+	mux.HandleFunc("/logfile", handleLogFile)
 	mux.HandleFunc("/events", handleEvents)
 
 	addr := ":8080"
@@ -98,65 +99,54 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// LogDirInfo holds a directory name and its log files (newest first).
+type LogDirInfo struct {
+	Name  string   `json:"name"`
+	Files []string `json:"files"`
+}
+
 func handleLogs(w http.ResponseWriter, r *http.Request) {
-	logDir := findLogDir()
-	if logDir == "" {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"content":  "ログディレクトリが見つかりません",
-			"filename": "",
-		})
+	dirs := findLogDirs()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"dirs": dirs})
+}
+
+func handleLogFile(w http.ResponseWriter, r *http.Request) {
+	rel := r.URL.Query().Get("path")
+	if rel == "" {
+		http.Error(w, "path required", http.StatusBadRequest)
 		return
 	}
 
-	entries, err := os.ReadDir(logDir)
+	// Security: path must be under one of the known log dirs.
+	abs, err := filepath.Abs(filepath.Join(projectRoot(), rel))
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"content":  "ログを読み込めませんでした: " + err.Error(),
-			"filename": "",
-		})
+		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
 	}
-
-	var logFiles []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".log") {
-			logFiles = append(logFiles, filepath.Join(logDir, e.Name()))
+	allowed := false
+	for _, d := range findLogDirs() {
+		dirAbs, _ := filepath.Abs(filepath.Join(projectRoot(), d.Name))
+		if strings.HasPrefix(abs, dirAbs+string(filepath.Separator)) {
+			allowed = true
+			break
 		}
 	}
-
-	if len(logFiles) == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"content":  "ログファイルがありません",
-			"filename": "",
-		})
+	if !allowed {
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
-	sort.Strings(logFiles)
-	latestLog := logFiles[len(logFiles)-1]
-
-	content, err := os.ReadFile(latestLog)
+	content, err := os.ReadFile(abs)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"content":  "ログを読み込めませんでした",
-			"filename": "",
-		})
+		http.Error(w, "cannot read file: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	lines := strings.Split(string(content), "\n")
-	if len(lines) > 200 {
-		lines = lines[len(lines)-200:]
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"content":  strings.Join(lines, "\n"),
-		"filename": filepath.Base(latestLog),
+	json.NewEncoder(w).Encode(map[string]string{
+		"filename": filepath.Base(abs),
+		"content":  string(content),
 	})
 }
 
@@ -340,17 +330,46 @@ func findBinary() string {
 	return ""
 }
 
-func findLogDir() string {
+// findLogDirs scans the project root for directories whose names end with
+// "Log" or "log" (e.g. MerucariLog, Log, RakutenLog …) and returns one
+// LogDirInfo per directory with its .log files sorted newest-first.
+func findLogDirs() []LogDirInfo {
 	root := projectRoot()
-	for _, d := range []string{
-		filepath.Join(root, "Log"),
-		"Log",
-		filepath.Join("..", "Log"),
-	} {
-		if info, err := os.Stat(d); err == nil && info.IsDir() {
-			abs, _ := filepath.Abs(d)
-			return abs
-		}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil
 	}
-	return ""
+
+	var result []LogDirInfo
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		lower := strings.ToLower(name)
+		if !strings.HasSuffix(lower, "log") {
+			continue
+		}
+
+		dirPath := filepath.Join(root, name)
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			continue
+		}
+
+		var logFiles []string
+		for _, f := range files {
+			if !f.IsDir() && strings.HasSuffix(f.Name(), ".log") {
+				logFiles = append(logFiles, f.Name())
+			}
+		}
+		// Sort newest-first (filenames are date-stamped, so reverse alpha = newest first)
+		sort.Sort(sort.Reverse(sort.StringSlice(logFiles)))
+
+		result = append(result, LogDirInfo{Name: name, Files: logFiles})
+	}
+
+	// Sort dirs alphabetically for stable ordering
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result
 }

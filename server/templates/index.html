@@ -8,279 +8,233 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0f1117;
-      --surface:   #1a1d27;
-      --surface2:  #22263a;
-      --border:    #2e3250;
-      --accent:    #ff6b35;
-      --accent-h:  #ff8c5a;
-      --green:     #22c55e;
-      --yellow:    #f59e0b;
-      --red:       #ef4444;
-      --text:      #e2e8f0;
-      --muted:     #64748b;
-      --console:   #0a0c14;
-      --radius:    12px;
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #22263a;
+      --border:   #2e3250;
+      --accent:   #ff6b35;
+      --green:    #22c55e;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --blue:     #60a5fa;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --console:  #0a0c14;
+      --radius:   12px;
     }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                   "Noto Sans JP", sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 32px 16px 64px;
+      padding: 32px 16px 80px;
     }
 
     /* ── Header ─────────────────────────────── */
     header {
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 40px;
+      width: 100%; max-width: 960px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 36px;
     }
-
     .logo {
       width: 44px; height: 44px;
       background: linear-gradient(135deg, var(--accent), #ff3c7a);
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
+      font-size: 22px; flex-shrink: 0;
     }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
-    header h1 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
-
-    header p {
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    /* ── Cards ───────────────────────────────── */
+    /* ── Card ────────────────────────────────── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 24px;
-      width: 100%;
-      max-width: 900px;
+      width: 100%; max-width: 960px;
       margin-bottom: 20px;
     }
-
     .card-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 18px;
+      font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: 16px;
     }
 
-    /* ── Status row ─────────────────────────── */
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
+    /* ── Status ──────────────────────────────── */
+    .status-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     .badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      border: 1px solid;
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; border: 1px solid;
     }
-
-    .badge.idle   { color: var(--green);  border-color: #16a34a33; background: #16a34a14; }
-    .badge.busy   { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
-
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-
+    .badge.idle { color: var(--green);  border-color: #16a34a44; background: #16a34a14; }
+    .badge.busy { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
     .badge.busy .dot { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .last-run { font-size: 12px; color: var(--muted); margin-left: auto; }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.3; }
-    }
-
-    .last-run {
-      font-size: 12px;
-      color: var(--muted);
-      margin-left: auto;
-    }
-
-    /* ── Run button ─────────────────────────── */
+    /* ── Run button ──────────────────────────── */
     .run-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 100%;
-      padding: 18px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 18px;
       background: linear-gradient(135deg, var(--accent), #ff3c7a);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-      letter-spacing: 0.02em;
+      color: #fff; border: none; border-radius: var(--radius);
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      transition: opacity .2s, transform .1s;
     }
-
-    .run-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .run-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
     .run-btn:active:not(:disabled) { transform: translateY(0); }
     .run-btn:disabled {
-      background: var(--surface2);
-      color: var(--muted);
-      cursor: not-allowed;
-      border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted);
+      cursor: not-allowed; border: 1px solid var(--border);
     }
-
-    .run-btn svg { flex-shrink: 0; }
 
     /* ── Console ─────────────────────────────── */
-    .console-wrap {
-      position: relative;
+    .toolbar {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 12px;
     }
-
-    .console-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
+    .ghost-btn {
+      font-size: 12px; color: var(--muted); background: none;
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; cursor: pointer;
+      transition: color .15s, border-color .15s;
     }
-
-    .clear-btn {
-      font-size: 12px;
-      color: var(--muted);
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 10px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
-    }
-
-    .clear-btn:hover { color: var(--text); border-color: var(--muted); }
+    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
 
     #console {
-      background: var(--console);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      height: 320px;
+      background: var(--console); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px; height: 300px;
       overflow-y: auto;
-      font-family: "SF Mono", "Fira Code", "Menlo", monospace;
-      font-size: 12.5px;
-      line-height: 1.7;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #a0aec0;
-      scroll-behavior: smooth;
+      font-family: "SF Mono","Fira Code","Menlo",monospace;
+      font-size: 12.5px; line-height: 1.7;
+      white-space: pre-wrap; word-break: break-all; color: #a0aec0;
     }
-
-    #console .line-ok    { color: #68d391; }
-    #console .line-err   { color: #fc8181; }
-    #console .line-info  { color: #90cdf4; }
-    #console .line-done  { color: #fbd38d; font-weight: 600; }
-    #console .line-start { color: var(--accent); font-weight: 600; }
-
+    #console .ln-ok    { color: #68d391; }
+    #console .ln-err   { color: #fc8181; }
+    #console .ln-info  { color: #90cdf4; }
+    #console .ln-done  { color: #fbd38d; font-weight: 600; }
+    #console .ln-start { color: var(--accent); font-weight: 600; }
     .console-empty {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      color: var(--muted);
-      font-size: 13px;
+      height: 100%; display: flex; align-items: center;
+      justify-content: center; color: var(--muted); font-size: 13px;
     }
 
-    /* ── Log viewer ──────────────────────────── */
-    .log-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
+    /* ── Log explorer ────────────────────────── */
+    .log-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 14px;
+      min-height: 360px;
+    }
+    @media (max-width: 640px) {
+      .log-layout { grid-template-columns: 1fr; }
     }
 
-    .log-filename {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: monospace;
-    }
-
-    .refresh-btn {
-      font-size: 12px;
-      color: var(--muted);
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 10px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
-    }
-
-    .refresh-btn:hover { color: var(--text); border-color: var(--muted); }
-
-    #logViewer {
+    /* File tree */
+    .file-tree {
       background: var(--console);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 16px;
-      height: 260px;
       overflow-y: auto;
-      font-family: "SF Mono", "Fira Code", "Menlo", monospace;
-      font-size: 12px;
-      line-height: 1.6;
-      white-space: pre-wrap;
+      padding: 8px 0;
+    }
+    .tree-dir {
+      padding: 6px 12px 4px;
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .06em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tree-dir-icon { opacity: .6; font-size: 13px; }
+    .tree-empty {
+      padding: 32px 12px;
+      font-size: 12px; color: var(--muted); text-align: center;
+    }
+    .file-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 12px 5px 20px;
+      font-size: 12px; font-family: "SF Mono","Menlo",monospace;
+      color: #718096; cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background .12s, color .12s, border-color .12s;
       word-break: break-all;
+    }
+    .file-item:hover  { background: var(--surface2); color: var(--text); }
+    .file-item.active {
+      background: var(--surface2);
+      color: var(--blue);
+      border-left-color: var(--blue);
+    }
+    .file-icon { font-size: 12px; flex-shrink: 0; }
+
+    /* Content viewer */
+    .viewer-wrap {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .viewer-header {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .viewer-filename {
+      font-size: 12px; font-family: "SF Mono","Menlo",monospace;
+      color: var(--blue); flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #logContent {
+      background: var(--console);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px;
+      flex: 1; min-height: 300px; max-height: 480px;
+      overflow-y: auto;
+      font-family: "SF Mono","Fira Code","Menlo",monospace;
+      font-size: 12px; line-height: 1.65;
+      white-space: pre-wrap; word-break: break-all;
       color: #718096;
     }
+    .viewer-placeholder {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; gap: 8px;
+      color: var(--muted); font-size: 13px; text-align: center;
+    }
+    .viewer-placeholder .ph-icon { font-size: 32px; opacity: .4; }
 
-    /* ── Scrollbar ──────────────────────────── */
+    /* Scrollbars */
+    .file-tree::-webkit-scrollbar,
     #console::-webkit-scrollbar,
-    #logViewer::-webkit-scrollbar { width: 6px; }
+    #logContent::-webkit-scrollbar { width: 5px; }
+    .file-tree::-webkit-scrollbar-track,
     #console::-webkit-scrollbar-track,
-    #logViewer::-webkit-scrollbar-track { background: transparent; }
+    #logContent::-webkit-scrollbar-track { background: transparent; }
+    .file-tree::-webkit-scrollbar-thumb,
     #console::-webkit-scrollbar-thumb,
-    #logViewer::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    #logContent::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-    /* ── Footer ──────────────────────────────── */
     footer {
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--muted);
-      text-align: center;
+      margin-top: 16px; font-size: 12px;
+      color: var(--muted); text-align: center;
     }
   </style>
 </head>
 <body>
 
+<!-- Header -->
 <header>
   <div class="logo">🏷️</div>
   <div>
     <h1>メルカリ 自動値引きツール</h1>
-    <p>メルカリの出品商品を一括で 1% 値引きします</p>
+    <p>出品商品を一括で 1% 値引きします</p>
   </div>
 </header>
 
-<!-- Status card -->
+<!-- Status -->
 <div class="card">
   <div class="card-title">ステータス</div>
   <div class="status-row">
@@ -292,89 +246,101 @@
   </div>
 </div>
 
-<!-- Action card -->
+<!-- Action -->
 <div class="card">
   <div class="card-title">操作</div>
   <button class="run-btn" id="runBtn" onclick="runPriceDown()">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="5 3 19 12 5 21 5 3"/>
     </svg>
     値引きを実行する
   </button>
 </div>
 
-<!-- Console card -->
+<!-- Console -->
 <div class="card">
-  <div class="console-toolbar">
+  <div class="toolbar">
     <div class="card-title" style="margin-bottom:0">実行ログ（リアルタイム）</div>
-    <button class="clear-btn" onclick="clearConsole()">クリア</button>
+    <button class="ghost-btn" onclick="clearConsole()">クリア</button>
   </div>
-  <div class="console-wrap">
-    <div id="console">
-      <div class="console-empty" id="consoleEmpty">実行ボタンを押すとここにログが表示されます</div>
-    </div>
+  <div id="console">
+    <div class="console-empty">実行ボタンを押すとここにログが表示されます</div>
   </div>
 </div>
 
-<!-- Log file card -->
+<!-- Log explorer -->
 <div class="card">
-  <div class="log-header">
+  <div class="toolbar">
     <div class="card-title" style="margin-bottom:0">ログファイル</div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span class="log-filename" id="logFilename"></span>
-      <button class="refresh-btn" onclick="loadLogs()">更新</button>
-    </div>
+    <button class="ghost-btn" onclick="loadLogList()">更新</button>
   </div>
-  <div id="logViewer">読み込み中…</div>
+  <div class="log-layout">
+
+    <!-- Left: file tree -->
+    <div class="file-tree" id="fileTree">
+      <div class="tree-empty">読み込み中…</div>
+    </div>
+
+    <!-- Right: content viewer -->
+    <div class="viewer-wrap">
+      <div class="viewer-header">
+        <span class="viewer-filename" id="viewerFilename"></span>
+        <button class="ghost-btn" id="scrollBottomBtn"
+                onclick="scrollToBottom()" style="display:none">最下部へ</button>
+      </div>
+      <div id="logContent">
+        <div class="viewer-placeholder">
+          <span class="ph-icon">📄</span>
+          左のファイル一覧からログを選択してください
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
 
 <script>
-  const consoleEl   = document.getElementById('console');
-  const consoleEmpty = document.getElementById('consoleEmpty');
-  const statusBadge = document.getElementById('statusBadge');
-  const statusText  = document.getElementById('statusText');
-  const lastRunText = document.getElementById('lastRunText');
-  const runBtn      = document.getElementById('runBtn');
-  const logViewer   = document.getElementById('logViewer');
-  const logFilename = document.getElementById('logFilename');
+  const consoleEl    = document.getElementById('console');
+  const statusBadge  = document.getElementById('statusBadge');
+  const statusText   = document.getElementById('statusText');
+  const lastRunText  = document.getElementById('lastRunText');
+  const runBtn       = document.getElementById('runBtn');
+  const fileTree     = document.getElementById('fileTree');
+  const logContent   = document.getElementById('logContent');
+  const viewerFname  = document.getElementById('viewerFilename');
+  const scrollBtn    = document.getElementById('scrollBottomBtn');
 
-  let isRunning = false;
-  let evtSource = null;
-  let lineCount = 0;
+  let isRunning  = false;
+  let lineCount  = 0;
+  let activeItem = null;   // currently selected file path
 
-  // ── SSE connection ──────────────────────────
+  // ── SSE ─────────────────────────────────────
   function connectSSE() {
-    if (evtSource) evtSource.close();
-    evtSource = new EventSource('/events');
-    evtSource.onmessage = (e) => {
-      const msg = e.data;
-      if (msg === '__DONE__') {
+    const es = new EventSource('/events');
+    es.onmessage = (e) => {
+      if (e.data === '__DONE__') {
         setRunning(false);
-        loadLogs();
+        loadLogList();
         return;
       }
-      appendLine(msg);
+      appendLine(e.data);
     };
-    evtSource.onerror = () => {
-      // Reconnect after 3s
-      setTimeout(connectSSE, 3000);
-    };
+    es.onerror = () => { es.close(); setTimeout(connectSSE, 3000); };
   }
 
-  // ── Run price-down ───────────────────────────
+  // ── Run ──────────────────────────────────────
   async function runPriceDown() {
     if (isRunning) return;
     clearConsole();
     setRunning(true);
-
     try {
-      const res = await fetch('/run', { method: 'POST' });
+      const res  = await fetch('/run', { method: 'POST' });
       const data = await res.json();
       if (res.status === 409) {
         appendLine('⚠ すでに実行中です');
-        setRunning(true);
       } else if (!res.ok) {
         appendLine('ERROR: ' + (data.error || res.statusText));
         setRunning(false);
@@ -389,70 +355,131 @@
   function setRunning(running) {
     isRunning = running;
     runBtn.disabled = running;
-
     if (running) {
       statusBadge.className = 'badge busy';
       statusText.textContent = '実行中…';
-      runBtn.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-        </svg>
-        実行中…`;
+      runBtn.innerHTML = iconPause() + ' 実行中…';
     } else {
       statusBadge.className = 'badge idle';
       statusText.textContent = '待機中';
       lastRunText.textContent = '最終実行: ' + new Date().toLocaleTimeString('ja-JP');
-      runBtn.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"/>
-        </svg>
-        値引きを実行する`;
+      runBtn.innerHTML = iconPlay() + ' 値引きを実行する';
     }
   }
 
-  // ── Console output ───────────────────────────
-  function appendLine(text) {
-    if (lineCount === 0 && consoleEmpty) {
-      consoleEmpty.remove();
-    }
-    lineCount++;
+  function iconPlay() {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+  }
+  function iconPause() {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+  }
 
-    const div = document.createElement('div');
-    div.className = lineClass(text);
-    div.textContent = text;
-    consoleEl.appendChild(div);
+  // ── Console ───────────────────────────────────
+  function appendLine(text) {
+    const empty = consoleEl.querySelector('.console-empty');
+    if (empty) empty.remove();
+    lineCount++;
+    const d = document.createElement('div');
+    d.className = lineClass(text);
+    d.textContent = text;
+    consoleEl.appendChild(d);
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
-
-  function lineClass(text) {
-    const t = text.toLowerCase();
-    if (text.startsWith('[終了]'))  return 'line-done';
-    if (text.startsWith('[起動]'))  return 'line-start';
-    if (t.includes('error') || t.includes('エラー')) return 'line-err';
-    if (t.includes('成功') || t.includes('完了') || t.includes('ok')) return 'line-ok';
-    if (text.startsWith('[') || t.includes('info')) return 'line-info';
+  function lineClass(t) {
+    const l = t.toLowerCase();
+    if (t.startsWith('[終了]'))  return 'ln-done';
+    if (t.startsWith('[起動]'))  return 'ln-start';
+    if (l.includes('error') || l.includes('エラー')) return 'ln-err';
+    if (l.includes('成功') || l.includes('完了') || l.includes('ok')) return 'ln-ok';
+    if (t.startsWith('['))       return 'ln-info';
     return '';
   }
-
   function clearConsole() {
-    consoleEl.innerHTML = '<div class="console-empty" id="consoleEmpty">実行ボタンを押すとここにログが表示されます</div>';
+    consoleEl.innerHTML = '<div class="console-empty">実行ボタンを押すとここにログが表示されます</div>';
     lineCount = 0;
   }
 
-  // ── Log file ─────────────────────────────────
-  async function loadLogs() {
+  // ── Log file list ─────────────────────────────
+  async function loadLogList() {
+    fileTree.innerHTML = '<div class="tree-empty">読み込み中…</div>';
     try {
       const res  = await fetch('/logs');
       const data = await res.json();
-      logViewer.textContent = data.content || '（ログなし）';
-      logViewer.scrollTop   = logViewer.scrollHeight;
-      logFilename.textContent = data.filename || '';
+      renderFileTree(data.dirs || []);
     } catch (err) {
-      logViewer.textContent = 'ログを読み込めませんでした: ' + err.message;
+      fileTree.innerHTML = `<div class="tree-empty">エラー: ${err.message}</div>`;
     }
   }
 
-  // ── Sync status on load ───────────────────────
+  function renderFileTree(dirs) {
+    if (!dirs || dirs.length === 0) {
+      fileTree.innerHTML = '<div class="tree-empty">ログディレクトリが見つかりません</div>';
+      return;
+    }
+
+    fileTree.innerHTML = '';
+    dirs.forEach(dir => {
+      const header = document.createElement('div');
+      header.className = 'tree-dir';
+      header.innerHTML = `<span class="tree-dir-icon">📁</span>${escHtml(dir.name)}`;
+      fileTree.appendChild(header);
+
+      if (!dir.files || dir.files.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:4px 20px 8px;font-size:11px;color:var(--muted)';
+        empty.textContent = 'ファイルなし';
+        fileTree.appendChild(empty);
+        return;
+      }
+
+      dir.files.forEach(fname => {
+        const path = dir.name + '/' + fname;
+        const item = document.createElement('div');
+        item.className = 'file-item' + (path === activeItem ? ' active' : '');
+        item.dataset.path = path;
+        item.innerHTML = `<span class="file-icon">📄</span>${escHtml(fname)}`;
+        item.onclick = () => openLogFile(path, item);
+        fileTree.appendChild(item);
+      });
+    });
+  }
+
+  // ── Log file viewer ───────────────────────────
+  async function openLogFile(path, itemEl) {
+    // Update active state
+    document.querySelectorAll('.file-item.active')
+            .forEach(el => el.classList.remove('active'));
+    itemEl.classList.add('active');
+    activeItem = path;
+
+    viewerFname.textContent = path;
+    logContent.textContent = '読み込み中…';
+    scrollBtn.style.display = 'none';
+
+    try {
+      const res  = await fetch('/logfile?path=' + encodeURIComponent(path));
+      const data = await res.json();
+      logContent.textContent = data.content || '（空のファイル）';
+      logContent.scrollTop   = logContent.scrollHeight;
+      scrollBtn.style.display = 'block';
+    } catch (err) {
+      logContent.textContent = 'エラー: ' + err.message;
+    }
+  }
+
+  function scrollToBottom() {
+    logContent.scrollTop = logContent.scrollHeight;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Sync on load ──────────────────────────────
   async function syncStatus() {
     try {
       const res  = await fetch('/status');
@@ -461,13 +488,10 @@
     } catch (_) {}
   }
 
-  // ── Init ──────────────────────────────────────
   connectSSE();
   syncStatus();
-  loadLogs();
-
-  // Refresh log every 60s when idle
-  setInterval(() => { if (!isRunning) loadLogs(); }, 60_000);
+  loadLogList();
+  setInterval(() => { if (!isRunning) loadLogList(); }, 60_000);
 </script>
 </body>
 </html>
