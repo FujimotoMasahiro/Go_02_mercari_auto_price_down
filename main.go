@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,7 +11,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -100,17 +103,17 @@ func main() {
 	appLogger.Separator()
 }
 
-// logPrice は各商品の現在価格をログに記録します。
+// logPrice は各商品の現在価格をCSVに記録します。
 func logPrice(ctx context.Context, ids []string) error {
 	targetURL := "https://jp.mercari.com/mypage/listings"
 	statusCode, err := navigateWithStatus(ctx, targetURL,
 		chromedp.WaitVisible(`ul[data-testid="listed-item-list"]`, chromedp.ByQuery),
 	)
 	if err != nil {
-		appLogger.Error("出品一覧(価格ログ)", "画面遷移", fmt.Sprintf("失敗: %v", err))
+		appLogger.Error("出品一覧(価格CSV)", "画面遷移", fmt.Sprintf("失敗: %v", err))
 		return fmt.Errorf("一覧ページの読み込み失敗: %w", err)
 	}
-	appLogger.Info("出品一覧(価格ログ)", "画面遷移", statusLabel(statusCode))
+	appLogger.Info("出品一覧(価格CSV)", "画面遷移", statusLabel(statusCode))
 
 	idSet := make(map[string]bool)
 	for _, id := range ids {
@@ -121,10 +124,28 @@ func logPrice(ctx context.Context, ids []string) error {
 	if err := chromedp.Run(ctx,
 		chromedp.Evaluate(`document.querySelectorAll('ul[data-testid="listed-item-list"] > li').length`, &itemCount),
 	); err != nil {
-		appLogger.Error("出品一覧(価格ログ)", "商品数取得", fmt.Sprintf("失敗: %v", err))
+		appLogger.Error("出品一覧(価格CSV)", "商品数取得", fmt.Sprintf("失敗: %v", err))
 		return fmt.Errorf("商品数の取得失敗: %w", err)
 	}
-	appLogger.Info("出品一覧(価格ログ)", "商品数取得", fmt.Sprintf("%d件", itemCount))
+	appLogger.Info("出品一覧(価格CSV)", "商品数取得", fmt.Sprintf("%d件", itemCount))
+
+	csvDir := "CSV"
+	if err := os.MkdirAll(csvDir, 0755); err != nil {
+		appLogger.Error("出品一覧(価格CSV)", "CSVディレクトリ作成", fmt.Sprintf("失敗: %v", err))
+		return fmt.Errorf("CSVディレクトリ作成失敗: %w", err)
+	}
+	csvFileName := time.Now().Format("20060102150405") + ".csv"
+	csvFilePath := filepath.Join(csvDir, csvFileName)
+	csvFile, err := os.Create(csvFilePath)
+	if err != nil {
+		appLogger.Error("出品一覧(価格CSV)", "CSVファイル作成", fmt.Sprintf("失敗: %v", err))
+		return fmt.Errorf("CSVファイル作成失敗: %w", err)
+	}
+	defer csvFile.Close()
+
+	w := csv.NewWriter(csvFile)
+	defer w.Flush()
+	w.Write([]string{"商品ID", "商品名", "価格(円)"})
 
 	for i := 0; i < itemCount; i++ {
 		var href, name, priceText string
@@ -136,7 +157,7 @@ func logPrice(ctx context.Context, ids []string) error {
 			chromedp.Text(selPrefix+` span[data-testid="price"]`, &priceText, chromedp.ByQuery),
 		)
 		if err != nil {
-			appLogger.Warn("出品一覧(価格ログ)", fmt.Sprintf("商品%d情報取得", i+1), fmt.Sprintf("失敗: %v", err))
+			appLogger.Warn("出品一覧(価格CSV)", fmt.Sprintf("商品%d情報取得", i+1), fmt.Sprintf("失敗: %v", err))
 			continue
 		}
 
@@ -154,13 +175,14 @@ func logPrice(ctx context.Context, ids []string) error {
 		priceText = strings.TrimSpace(priceText)
 		price, err := strconv.Atoi(priceText)
 		if err != nil {
-			appLogger.Warn("出品一覧(価格ログ)", fmt.Sprintf("商品%s 価格パース", itemID), fmt.Sprintf("失敗: %v", err))
+			appLogger.Warn("出品一覧(価格CSV)", fmt.Sprintf("商品%s 価格パース", itemID), fmt.Sprintf("失敗: %v", err))
 			continue
 		}
 
-		appLogger.Info("出品一覧(価格ログ)", fmt.Sprintf("商品 %s「%s」", itemID, name), fmt.Sprintf("%d円", price))
+		w.Write([]string{itemID, name, strconv.Itoa(price)})
 	}
 
+	appLogger.Info("出品一覧(価格CSV)", "CSV保存完了", csvFilePath)
 	return nil
 }
 
@@ -219,8 +241,6 @@ func discountPrices(ctx context.Context, ids []string) error {
 		appLogger.Info(screen, "値引き実行", fmt.Sprintf("%d円 → %d円", price, newPrice))
 
 		timeoutCtx, cancelTimeout := context.WithTimeout(ctx, 8*time.Second)
-		defer cancelTimeout()
-
 		err = chromedp.Run(timeoutCtx,
 			chromedp.WaitVisible(node_price, chromedp.ByQuery),
 			chromedp.Sleep(waitTime*time.Second),
@@ -230,6 +250,7 @@ func discountPrices(ctx context.Context, ids []string) error {
 			chromedp.Click(`button[data-testid="edit-button"]`, chromedp.ByQuery),
 			chromedp.Sleep(waitTime*time.Second),
 		)
+		cancelTimeout()
 		if err != nil {
 			appLogger.Error(screen, "値引き実行", fmt.Sprintf("失敗(タイムアウト等): %v", err))
 			chromedp.Run(ctx,

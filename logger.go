@@ -1,50 +1,26 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 )
 
-// AppLogger はファイルと標準出力に同時に書き込むロガーです。
+// AppLogger は標準出力に書き込むロガーです。
 type AppLogger struct {
 	logger *log.Logger
-	file   *os.File
 }
 
 var appLogger *AppLogger
 
-// NewAppLogger は Log ディレクトリに日付ベースのログファイルを作成します。
-// 同じ日の実行では追記されます。
+// NewAppLogger はロガーを初期化します。
 func NewAppLogger() (*AppLogger, error) {
-	logDir := "Log"
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return nil, fmt.Errorf("ログディレクトリの作成失敗: %w", err)
-	}
-
-	logFileName := time.Now().Format("20060102") + ".log"
-	logFilePath := filepath.Join(logDir, logFileName)
-
-	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("ログファイルの作成失敗: %w", err)
-	}
-
-	writer := io.MultiWriter(os.Stdout, logFile)
-	logger := log.New(writer, "", 0)
-
-	return &AppLogger{logger: logger, file: logFile}, nil
+	logger := log.New(os.Stdout, "", 0)
+	return &AppLogger{logger: logger}, nil
 }
 
-// Close はログファイルをクローズします。
-func (l *AppLogger) Close() {
-	if l.file != nil {
-		l.file.Close()
-	}
-}
+// Close は互換性のために残しています（ファイルなし）。
+func (l *AppLogger) Close() {}
 
 func (l *AppLogger) write(level, screen, action, status string) {
 	ts := time.Now().Format("2006/01/02 15:04:05")
