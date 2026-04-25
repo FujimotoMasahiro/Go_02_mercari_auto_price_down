@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -31,6 +32,9 @@ type TabInfo struct {
 }
 
 func main() {
+	csvOnly := flag.Bool("csv-only", false, "CSV作成のみ実行（値引きをスキップ）")
+	flag.Parse()
+
 	var err error
 	appLogger, err = NewAppLogger()
 	if err != nil {
@@ -83,21 +87,28 @@ func main() {
 	}
 	appLogger.Info("ログイン確認", "ログイン状態", "ログイン済み")
 
-	appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き前)")
-	if err := logPrice(ctx, itemIDs); err != nil {
-		appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
-	}
-
-	appLogger.Info("値引き処理", "一括値引き", "開始")
-	if err := discountPrices(ctx, itemIDs); err != nil {
-		appLogger.Error("値引き処理", "一括値引き", fmt.Sprintf("失敗: %v", err))
+	if *csvOnly {
+		appLogger.Info("価格ログ", "スナップショット記録", "開始 (CSV作成モード)")
+		if err := logPrice(ctx, itemIDs); err != nil {
+			appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
+		}
 	} else {
-		appLogger.Info("値引き処理", "一括値引き", "完了")
-	}
+		appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き前)")
+		if err := logPrice(ctx, itemIDs); err != nil {
+			appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
+		}
 
-	appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き後)")
-	if err := logPrice(ctx, itemIDs); err != nil {
-		appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
+		appLogger.Info("値引き処理", "一括値引き", "開始")
+		if err := discountPrices(ctx, itemIDs); err != nil {
+			appLogger.Error("値引き処理", "一括値引き", fmt.Sprintf("失敗: %v", err))
+		} else {
+			appLogger.Info("値引き処理", "一括値引き", "完了")
+		}
+
+		appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き後)")
+		if err := logPrice(ctx, itemIDs); err != nil {
+			appLogger.Error("価格ログ", "スナップショット記録", fmt.Sprintf("失敗: %v", err))
+		}
 	}
 
 	appLogger.Info("終了", "全処理完了", "OK")
