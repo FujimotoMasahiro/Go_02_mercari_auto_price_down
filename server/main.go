@@ -4,6 +4,7 @@ import (
 	"bufio"
 	_ "embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -18,8 +19,20 @@ import (
 	"time"
 )
 
+// BuildTarget はビルド対象バイナリの定義です。
+// server/build_targets.json に追加することで保守できます。
+type BuildTarget struct {
+	Name   string `json:"name"`
+	GOOS   string `json:"goos"` // "darwin" / "windows" / "" (全OS)
+	Output string `json:"output"`
+	Pkg    string `json:"pkg"`
+}
+
 //go:embed templates/index.html
 var indexHTML []byte
+
+//go:embed build_targets.json
+var buildTargetsJSON []byte
 
 var (
 	mu        sync.Mutex
@@ -31,6 +44,13 @@ var (
 )
 
 func main() {
+	build := flag.Bool("build", false, "起動前に build_targets.json のバイナリを最新化する")
+	flag.Parse()
+
+	if *build {
+		buildAll()
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/run", handleRun)
@@ -230,12 +250,27 @@ func broadcast(msg string) {
 }
 
 func runBinary() {
+	logFile := openLogFile()
 	defer func() {
+		if logFile != nil {
+			logFile.Sync()
+			logFile.Close()
+		}
 		mu.Lock()
 		isRunning = false
 		mu.Unlock()
 		broadcast("__DONE__")
 	}()
+
+	var logMu sync.Mutex
+	writeLine := func(line string) {
+		broadcast(line)
+		if logFile != nil {
+			logMu.Lock()
+			fmt.Fprintln(logFile, line)
+			logMu.Unlock()
+		}
+	}
 
 	binaryPath := findBinary()
 	if binaryPath == "" {
@@ -245,28 +280,28 @@ func runBinary() {
 		} else {
 			name = "メルカリ自動値引きツール_mac_ver100"
 		}
-		broadcast("ERROR: バイナリが見つかりません: bin/" + name)
+		writeLine("ERROR: バイナリが見つかりません: bin/" + name)
 		return
 	}
 
-	broadcast("[起動] " + binaryPath)
+	writeLine("[起動] " + binaryPath)
 
 	cmd := exec.Command(binaryPath)
 	cmd.Dir = projectRoot()
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		broadcast("ERROR: " + err.Error())
+		writeLine("ERROR: " + err.Error())
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		broadcast("ERROR: " + err.Error())
+		writeLine("ERROR: " + err.Error())
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		broadcast("ERROR: 起動失敗: " + err.Error())
+		writeLine("ERROR: 起動失敗: " + err.Error())
 		return
 	}
 
@@ -275,7 +310,7 @@ func runBinary() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
-			broadcast(scanner.Text())
+			writeLine(scanner.Text())
 		}
 	}
 	wg.Add(2)
@@ -284,10 +319,55 @@ func runBinary() {
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {
-		broadcast("[終了] エラー: " + err.Error())
+		writeLine("[終了] エラー: " + err.Error())
 	} else {
-		broadcast("[終了] 正常終了")
+		writeLine("[終了] 正常終了")
 	}
+}
+
+// buildAll は build_targets.json に定義されたバイナリを現在のOSに合わせてビルドします。
+func buildAll() {
+	var targets []BuildTarget
+	if err := json.Unmarshal(buildTargetsJSON, &targets); err != nil {
+		log.Printf("[ビルド] 設定読み込み失敗: %v", err)
+		return
+	}
+
+	root := projectRoot()
+	for _, t := range targets {
+		if t.GOOS != "" && t.GOOS != runtime.GOOS {
+			continue
+		}
+		pkg := t.Pkg
+		if pkg == "" {
+			pkg = "."
+		}
+		output := filepath.Join(root, t.Output)
+		log.Printf("[ビルド] %s をビルド中...", t.Name)
+		cmd := exec.Command("go", "build", "-o", output, pkg)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("[ビルド失敗] %s: %v\n%s", t.Name, err, string(out))
+		} else {
+			log.Printf("[ビルド完了] %s → %s", t.Name, t.Output)
+		}
+	}
+}
+
+// openLogFile はLogディレクトリに日付ベースのログファイルを開きます（追記モード）。
+func openLogFile() *os.File {
+	logDir := filepath.Join(projectRoot(), "Log")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Printf("ログディレクトリ作成失敗: %v", err)
+		return nil
+	}
+	logPath := filepath.Join(logDir, time.Now().Format("20060102")+".log")
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("ログファイル作成失敗: %v", err)
+		return nil
+	}
+	return f
 }
 
 func projectRoot() string {
