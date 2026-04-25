@@ -54,6 +54,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/run", handleRun)
+	mux.HandleFunc("/create-csv", handleCreateCSV)
 	mux.HandleFunc("/stop", handleStop)
 	mux.HandleFunc("/status", handleStatus)
 	mux.HandleFunc("/logs", handleLogs)
@@ -75,7 +76,18 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	startBinary(w)
+}
 
+func handleCreateCSV(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	startBinary(w, "--csv-only")
+}
+
+func startBinary(w http.ResponseWriter, args ...string) {
 	mu.Lock()
 	if isRunning {
 		mu.Unlock()
@@ -88,7 +100,7 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 	outputBuf.Reset()
 	mu.Unlock()
 
-	go runBinary()
+	go runBinary(args...)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
@@ -249,7 +261,7 @@ func broadcast(msg string) {
 	}
 }
 
-func runBinary() {
+func runBinary(args ...string) {
 	logFile := openLogFile()
 	defer func() {
 		if logFile != nil {
@@ -286,7 +298,7 @@ func runBinary() {
 
 	writeLine("[起動] " + binaryPath)
 
-	cmd := exec.Command(binaryPath)
+	cmd := exec.Command(binaryPath, args...)
 	cmd.Dir = projectRoot()
 
 	stdout, err := cmd.StdoutPipe()

@@ -81,9 +81,12 @@
     .last-run { font-size: 12px; color: var(--muted); margin-left: auto; }
 
     /* ── Run button ──────────────────────────── */
+    .btn-row {
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
     .run-btn {
       display: flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; padding: 18px;
+      flex: 1; min-width: 200px; padding: 18px;
       background: linear-gradient(135deg, var(--accent), #ff3c7a);
       color: #fff; border: none; border-radius: var(--radius);
       font-size: 16px; font-weight: 700; cursor: pointer;
@@ -92,6 +95,20 @@
     .run-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
     .run-btn:active:not(:disabled) { transform: translateY(0); }
     .run-btn:disabled {
+      background: var(--surface2); color: var(--muted);
+      cursor: not-allowed; border: 1px solid var(--border);
+    }
+    .csv-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      flex: 1; min-width: 200px; padding: 18px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff; border: none; border-radius: var(--radius);
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+    .csv-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+    .csv-btn:active:not(:disabled) { transform: translateY(0); }
+    .csv-btn:disabled {
       background: var(--surface2); color: var(--muted);
       cursor: not-allowed; border: 1px solid var(--border);
     }
@@ -249,13 +266,26 @@
 <!-- Action -->
 <div class="card">
   <div class="card-title">操作</div>
-  <button class="run-btn" id="runBtn" onclick="runPriceDown()">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="5 3 19 12 5 21 5 3"/>
-    </svg>
-    値引きを実行する
-  </button>
+  <div class="btn-row">
+    <button class="run-btn" id="runBtn" onclick="runPriceDown()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      値引きを実行する
+    </button>
+    <button class="csv-btn" id="csvBtn" onclick="createCSV()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="16" y2="17"/>
+        <line x1="8" y1="9" x2="10" y2="9"/>
+      </svg>
+      商品一覧CSVを作成する
+    </button>
+  </div>
 </div>
 
 <!-- Console -->
@@ -308,6 +338,7 @@
   const statusText   = document.getElementById('statusText');
   const lastRunText  = document.getElementById('lastRunText');
   const runBtn       = document.getElementById('runBtn');
+  const csvBtn       = document.getElementById('csvBtn');
   const fileTree     = document.getElementById('fileTree');
   const logContent   = document.getElementById('logContent');
   const viewerFname  = document.getElementById('viewerFilename');
@@ -351,22 +382,51 @@
     }
   }
 
+  async function createCSV() {
+    if (isRunning) return;
+    clearConsole();
+    setRunning(true);
+    try {
+      const res  = await fetch('/create-csv', { method: 'POST' });
+      const data = await res.json();
+      if (res.status === 409) {
+        appendLine('⚠ すでに実行中です');
+      } else if (!res.ok) {
+        appendLine('ERROR: ' + (data.error || res.statusText));
+        setRunning(false);
+      }
+    } catch (err) {
+      appendLine('ERROR: ' + err.message);
+      setRunning(false);
+    }
+  }
+
   // ── State helpers ────────────────────────────
   function setRunning(running) {
     isRunning = running;
     runBtn.disabled = running;
+    csvBtn.disabled = running;
     if (running) {
       statusBadge.className = 'badge busy';
       statusText.textContent = '実行中…';
-      runBtn.innerHTML = iconPause() + ' 実行中…';
     } else {
       statusBadge.className = 'badge idle';
       statusText.textContent = '待機中';
       lastRunText.textContent = '最終実行: ' + new Date().toLocaleTimeString('ja-JP');
       runBtn.innerHTML = iconPlay() + ' 値引きを実行する';
+      csvBtn.innerHTML = iconCSV() + ' 商品一覧CSVを作成する';
     }
   }
 
+  function iconCSV() {
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="8" y1="13" x2="16" y2="13"/>
+      <line x1="8" y1="17" x2="16" y2="17"/>
+      <line x1="8" y1="9" x2="10" y2="9"/></svg>`;
+  }
   function iconPlay() {
     return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
