@@ -1,6 +1,4 @@
 *Log/
 .claude/
-CSV/
-img/
-mercari-pricelower
-server/server
+*CSV/
+*img/
