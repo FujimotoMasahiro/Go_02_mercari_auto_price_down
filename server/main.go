@@ -65,8 +65,26 @@ func main() {
 	mux.HandleFunc("/events", handleEvents)
 
 	addr := ":8080"
-	log.Printf("Web UI 起動: http://localhost%s", addr)
+	url := "http://localhost" + addr
+	log.Printf("Web UI 起動: %s", url)
+	go openBrowser(url)
 	log.Fatal(http.ListenAndServe(addr, mux))
+}
+
+func openBrowser(url string) {
+	time.Sleep(500 * time.Millisecond)
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Printf("ブラウザ起動失敗: %v", err)
+	}
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
