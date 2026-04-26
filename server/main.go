@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/csv"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -48,12 +47,7 @@ var (
 )
 
 func main() {
-	build := flag.Bool("build", false, "起動前に build_targets.json のバイナリを最新化する")
-	flag.Parse()
-
-	if *build {
-		buildAll()
-	}
+	buildAll()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
@@ -157,7 +151,7 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	startBinary(w)
+	startBinary(w, findBinary)
 }
 
 func handleCreateCSV(w http.ResponseWriter, r *http.Request) {
@@ -165,10 +159,10 @@ func handleCreateCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	startBinary(w, "--csv-only")
+	startBinary(w, findCSVBinary)
 }
 
-func startBinary(w http.ResponseWriter, args ...string) {
+func startBinary(w http.ResponseWriter, finder func() string) {
 	mu.Lock()
 	if isRunning {
 		mu.Unlock()
@@ -181,7 +175,7 @@ func startBinary(w http.ResponseWriter, args ...string) {
 	outputBuf.Reset()
 	mu.Unlock()
 
-	go runBinary(args...)
+	go runBinary(finder)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
@@ -342,7 +336,7 @@ func broadcast(msg string) {
 	}
 }
 
-func runBinary(args ...string) {
+func runBinary(finder func() string) {
 	logFile := openLogFile()
 	defer func() {
 		if logFile != nil {
@@ -365,21 +359,15 @@ func runBinary(args ...string) {
 		}
 	}
 
-	binaryPath := findBinary()
+	binaryPath := finder()
 	if binaryPath == "" {
-		var name string
-		if runtime.GOOS == "windows" {
-			name = "メルカリ自動値引きツール_windows_ver100.exe"
-		} else {
-			name = "メルカリ自動値引きツール_mac_ver100"
-		}
-		writeLine("ERROR: バイナリが見つかりません: bin/" + name)
+		writeLine("ERROR: バイナリが見つかりません (bin/ ディレクトリを確認してください)")
 		return
 	}
 
 	writeLine("[起動] " + binaryPath)
 
-	cmd := exec.Command(binaryPath, args...)
+	cmd := exec.Command(binaryPath)
 	cmd.Dir = projectRoot()
 
 	stdout, err := cmd.StdoutPipe()
@@ -480,13 +468,21 @@ func projectRoot() string {
 }
 
 func findBinary() string {
+	return findBinaryByName("メルカリ自動値引きツール_mac_ver100", "メルカリ自動値引きツール_windows_ver100.exe")
+}
+
+func findCSVBinary() string {
+	return findBinaryByName("メルカリCSV作成ツール_mac_ver100", "メルカリCSV作成ツール_windows_ver100.exe")
+}
+
+func findBinaryByName(macName, winName string) string {
 	root := projectRoot()
 
 	var name string
 	if runtime.GOOS == "windows" {
-		name = "メルカリ自動値引きツール_windows_ver100.exe"
+		name = winName
 	} else {
-		name = "メルカリ自動値引きツール_mac_ver100"
+		name = macName
 	}
 
 	candidates := []string{

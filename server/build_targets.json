@@ -10,5 +10,17 @@
     "goos": "windows",
     "output": "bin/メルカリ自動値引きツール_windows_ver100.exe",
     "pkg": "."
+  },
+  {
+    "name": "メルカリCSV作成ツール (macOS)",
+    "goos": "darwin",
+    "output": "bin/メルカリCSV作成ツール_mac_ver100",
+    "pkg": "./cmd/csvonly"
+  },
+  {
+    "name": "メルカリCSV作成ツール (Windows)",
+    "goos": "windows",
+    "output": "bin/メルカリCSV作成ツール_windows_ver100.exe",
+    "pkg": "./cmd/csvonly"
   }
 ]
