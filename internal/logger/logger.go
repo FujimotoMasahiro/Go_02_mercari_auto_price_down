@@ -1,4 +1,4 @@
-package mercari
+package logger
 
 import (
 	"log"
@@ -11,12 +11,10 @@ type AppLogger struct {
 	logger *log.Logger
 }
 
-var appLogger *AppLogger
-
-// NewAppLogger はロガーを初期化します。
-func NewAppLogger() (*AppLogger, error) {
-	logger := log.New(os.Stdout, "", 0)
-	return &AppLogger{logger: logger}, nil
+// New はロガーを初期化します。
+func New() (*AppLogger, error) {
+	l := log.New(os.Stdout, "", 0)
+	return &AppLogger{logger: l}, nil
 }
 
 // Close は互換性のために残しています（ファイルなし）。

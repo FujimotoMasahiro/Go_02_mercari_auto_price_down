@@ -3,13 +3,13 @@
     "name": "メルカリ自動値引きツール (macOS)",
     "goos": "darwin",
     "output": "bin/メルカリ自動値引きツール_mac_ver100",
-    "pkg": "."
+    "pkg": "./cmd/discount"
   },
   {
     "name": "メルカリ自動値引きツール (Windows)",
     "goos": "windows",
     "output": "bin/メルカリ自動値引きツール_windows_ver100.exe",
-    "pkg": "."
+    "pkg": "./cmd/discount"
   },
   {
     "name": "メルカリCSV作成ツール (macOS)",

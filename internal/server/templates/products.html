@@ -78,22 +78,31 @@
 
     /* ── Action row ──────────────────────────── */
     .action-row {
-      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     }
-    .update-btn {
+    .action-meta {
+      display: flex; align-items: center; gap: 12px;
+      margin-left: auto; flex-wrap: wrap;
+    }
+
+    /* ボタン共通 */
+    .action-btn {
       display: flex; align-items: center; gap: 8px;
-      padding: 12px 24px;
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      padding: 12px 22px;
       color: #fff; border: none; border-radius: var(--radius);
       font-size: 15px; font-weight: 700; cursor: pointer;
       transition: opacity .2s, transform .1s;
+      white-space: nowrap;
     }
-    .update-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
-    .update-btn:active:not(:disabled) { transform: translateY(0); }
-    .update-btn:disabled {
-      background: var(--surface2); color: var(--muted);
+    .action-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+    .action-btn:active:not(:disabled) { transform: translateY(0); }
+    .action-btn:disabled {
+      background: var(--surface2) !important; color: var(--muted);
       cursor: not-allowed; border: 1px solid var(--border);
     }
+    .btn-csv     { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .btn-run     { background: linear-gradient(135deg, var(--accent), #ff3c7a); }
+
     .file-label {
       font-size: 12px; color: var(--muted);
       font-family: "SF Mono","Fira Code","Menlo",monospace;
@@ -105,10 +114,11 @@
       display: flex; align-items: center; gap: 8px;
       padding: 6px 14px; border-radius: 999px;
       font-size: 13px; font-weight: 600; border: 1px solid;
+      white-space: nowrap;
     }
-    .badge.idle   { color: var(--green);  border-color: #16a34a44; background: #16a34a14; }
-    .badge.busy   { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
-    .badge.done   { color: var(--blue);   border-color: #3b82f644; background: #3b82f614; }
+    .badge.idle { color: var(--green);  border-color: #16a34a44; background: #16a34a14; }
+    .badge.busy { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
+    .badge.done { color: var(--blue);   border-color: #3b82f644; background: #3b82f614; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
     .badge.busy .dot { animation: pulse 1s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
@@ -118,7 +128,7 @@
     .progress-wrap.visible { display: block; }
     #progressConsole {
       background: var(--console); border: 1px solid var(--border);
-      border-radius: 8px; padding: 14px; height: 160px;
+      border-radius: 8px; padding: 14px; height: 200px;
       overflow-y: auto;
       font-family: "SF Mono","Fira Code","Menlo",monospace;
       font-size: 12px; line-height: 1.65;
@@ -129,6 +139,25 @@
     #progressConsole .ln-info  { color: #90cdf4; }
     #progressConsole .ln-done  { color: #fbd38d; font-weight: 600; }
     #progressConsole .ln-start { color: var(--accent); font-weight: 600; }
+
+    /* ── Table toolbar ───────────────────────── */
+    .table-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .table-toolbar-label {
+      font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .08em; margin-right: auto;
+    }
+    .ghost-btn {
+      font-size: 12px; color: var(--muted); background: none;
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 12px; cursor: pointer;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
 
     /* ── Table ───────────────────────────────── */
     .table-wrap {
@@ -152,6 +181,7 @@
       white-space: nowrap;
     }
     th.right { text-align: right; }
+    th.center { text-align: center; }
     td {
       padding: 13px 16px;
       border-bottom: 1px solid var(--border);
@@ -161,9 +191,9 @@
       text-align: right; font-family: "SF Mono","Menlo",monospace;
       font-weight: 600; color: var(--yellow); white-space: nowrap;
     }
-    td.img-cell {
-      width: 56px; padding: 8px 12px;
-    }
+    td.img-cell { width: 56px; padding: 8px 12px; }
+    td.exclude-cell { width: 64px; text-align: center; padding: 8px 16px; }
+
     .thumb {
       width: 40px; height: 40px;
       object-fit: cover; border-radius: 6px; display: block;
@@ -177,6 +207,17 @@
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--surface2); }
 
+    /* 対象外チェックされた行を薄く表示 */
+    tr.excluded td { opacity: .4; }
+    tr.excluded td.exclude-cell { opacity: 1; }
+
+    /* チェックボックス */
+    .exclude-cb {
+      width: 16px; height: 16px;
+      accent-color: var(--red);
+      cursor: pointer;
+    }
+
     .table-empty {
       text-align: center; padding: 48px 16px;
       color: var(--muted); font-size: 14px;
@@ -185,8 +226,10 @@
 
     /* ── Summary row ─────────────────────────── */
     .summary {
-      font-size: 12px; color: var(--muted); margin-top: 12px; text-align: right;
+      font-size: 12px; color: var(--muted); margin-top: 12px;
+      display: flex; justify-content: flex-end; gap: 16px;
     }
+    .summary-excluded { color: var(--red); }
 
     /* Scrollbars */
     #progressConsole::-webkit-scrollbar { width: 5px; }
@@ -213,15 +256,15 @@
   <div class="logo">📋</div>
   <div>
     <h1>商品一覧</h1>
-    <p>CSVから商品名・価格を確認します</p>
+    <p>CSV作成・値引き実行・対象外設定</p>
   </div>
 </header>
 
-<!-- CSV 更新カード -->
+<!-- 操作カード -->
 <div class="card">
-  <div class="card-title">CSV 操作</div>
+  <div class="card-title">操作</div>
   <div class="action-row">
-    <button class="update-btn" id="updateBtn" onclick="updateCSV()">
+    <button class="action-btn btn-csv" id="csvBtn" onclick="updateCSV()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="23 4 23 10 17 10"/>
@@ -229,11 +272,20 @@
       </svg>
       CSV を更新する
     </button>
-    <div id="statusBadge" class="badge idle">
-      <span class="dot"></span>
-      <span id="statusText">待機中</span>
+    <button class="action-btn btn-run" id="runBtn" onclick="runDiscount()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      値引きを実行する
+    </button>
+    <div class="action-meta">
+      <div id="statusBadge" class="badge idle">
+        <span class="dot"></span>
+        <span id="statusText">待機中</span>
+      </div>
+      <div class="file-label">読込ファイル: <span id="fileLabel">—</span></div>
     </div>
-    <div class="file-label">読込ファイル: <span id="fileLabel">—</span></div>
   </div>
   <div class="progress-wrap" id="progressWrap">
     <div id="progressConsole"></div>
@@ -242,7 +294,11 @@
 
 <!-- 商品一覧テーブル -->
 <div class="card">
-  <div class="card-title">商品一覧</div>
+  <div class="table-toolbar">
+    <span class="table-toolbar-label">商品一覧</span>
+    <button class="ghost-btn" onclick="selectAllExclude(false)">全選択解除</button>
+    <button class="ghost-btn" onclick="selectAllExclude(true)">全て対象外</button>
+  </div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -251,10 +307,11 @@
           <th>画像</th>
           <th>商品名</th>
           <th class="right">価格（円）</th>
+          <th class="center" title="チェックすると値引き対象外になります">対象外</th>
         </tr>
       </thead>
       <tbody id="productBody">
-        <tr><td colspan="4" class="table-empty">
+        <tr><td colspan="5" class="table-empty">
           <span class="empty-icon">📦</span>
           読み込み中…
         </td></tr>
@@ -267,7 +324,8 @@
 <footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
 
 <script>
-  const updateBtn    = document.getElementById('updateBtn');
+  const csvBtn       = document.getElementById('csvBtn');
+  const runBtn       = document.getElementById('runBtn');
   const statusBadge  = document.getElementById('statusBadge');
   const statusText   = document.getElementById('statusText');
   const fileLabel    = document.getElementById('fileLabel');
@@ -276,17 +334,20 @@
   const progressWrap = document.getElementById('progressWrap');
   const progressEl   = document.getElementById('progressConsole');
 
-  let isRunning = false;
-  let es = null;
+  let isRunning   = false;
+  let es          = null;
+  let currentItems = [];
+  const excludedIds = new Set();   // 対象外チェック済みの商品ID
 
   // ── CSV データ読み込み ──────────────────────────
   async function loadProducts() {
     try {
       const res  = await fetch('/csv-data');
       const data = await res.json();
-      renderTable(data.items || [], data.file || '');
+      currentItems = data.items || [];
+      renderTable(currentItems, data.file || '');
     } catch (err) {
-      productBody.innerHTML = `<tr><td colspan="4" class="table-empty">
+      productBody.innerHTML = `<tr><td colspan="5" class="table-empty">
         <span class="empty-icon">⚠️</span>
         エラー: ${escHtml(err.message)}
       </td></tr>`;
@@ -297,16 +358,18 @@
     fileLabel.textContent = file || '（CSVなし）';
 
     if (!items || items.length === 0) {
-      productBody.innerHTML = `<tr><td colspan="4" class="table-empty">
+      productBody.innerHTML = `<tr><td colspan="5" class="table-empty">
         <span class="empty-icon">📦</span>
         商品データがありません。「CSV を更新する」を押して取得してください。
       </td></tr>`;
-      summary.textContent = '';
+      summary.innerHTML = '';
       return;
     }
 
-    productBody.innerHTML = items.map((item, i) => `
-      <tr>
+    productBody.innerHTML = items.map((item, i) => {
+      const excluded = excludedIds.has(item.id);
+      return `
+      <tr class="${excluded ? 'excluded' : ''}" data-id="${escHtml(item.id)}">
         <td style="color:var(--muted);font-size:12px">${i + 1}</td>
         <td class="img-cell">
           ${item.imagePath
@@ -315,16 +378,62 @@
         </td>
         <td>${escHtml(item.name)}</td>
         <td class="price">¥${Number(item.price).toLocaleString('ja-JP')}</td>
-      </tr>`).join('');
+        <td class="exclude-cell">
+          <input type="checkbox" class="exclude-cb" data-id="${escHtml(item.id)}"
+                 ${excluded ? 'checked' : ''}
+                 title="チェックすると値引き対象外になります">
+        </td>
+      </tr>`;
+    }).join('');
 
-    summary.textContent = `${items.length} 件`;
+    // チェックボックスのイベント登録
+    productBody.querySelectorAll('.exclude-cb').forEach(cb => {
+      cb.addEventListener('change', onExcludeChange);
+    });
+
+    updateSummary(items.length);
   }
 
-  // ── CSV 更新（バイナリ実行） ──────────────────────
+  function onExcludeChange(e) {
+    const id  = e.target.dataset.id;
+    const row = e.target.closest('tr');
+    if (e.target.checked) {
+      excludedIds.add(id);
+      row.classList.add('excluded');
+    } else {
+      excludedIds.delete(id);
+      row.classList.remove('excluded');
+    }
+    updateSummary(currentItems.length);
+  }
+
+  function updateSummary(total) {
+    const excCount = excludedIds.size;
+    const targetCount = total - excCount;
+    let html = `<span>${total} 件</span>`;
+    if (excCount > 0) {
+      html += `<span class="summary-excluded">対象外: ${excCount} 件</span>`;
+      html += `<span>値引き対象: ${targetCount} 件</span>`;
+    }
+    summary.innerHTML = html;
+  }
+
+  function selectAllExclude(check) {
+    currentItems.forEach(item => {
+      if (check) {
+        excludedIds.add(item.id);
+      } else {
+        excludedIds.delete(item.id);
+      }
+    });
+    renderTable(currentItems, fileLabel.textContent);
+  }
+
+  // ── CSV 更新 ──────────────────────────────────
   async function updateCSV() {
     if (isRunning) return;
 
-    setRunning(true);
+    setRunning(true, 'CSV更新中…');
     progressWrap.classList.add('visible');
     progressEl.innerHTML = '';
 
@@ -347,11 +456,51 @@
       return;
     }
 
-    connectSSE();
+    connectSSE(() => { loadProducts(); });
+  }
+
+  // ── 値引き実行 ─────────────────────────────────
+  async function runDiscount() {
+    if (isRunning) return;
+
+    const excluded = Array.from(excludedIds);
+
+    setRunning(true, '値引き実行中…');
+    progressWrap.classList.add('visible');
+    progressEl.innerHTML = '';
+
+    if (excluded.length > 0) {
+      appendProgress(`[対象外] ${excluded.length} 件をスキップします`);
+    }
+
+    try {
+      const res = await fetch('/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ excludedIds: excluded }),
+      });
+      const data = await res.json();
+      if (res.status === 409) {
+        appendProgress('⚠ すでに実行中です');
+        setRunning(false);
+        return;
+      }
+      if (!res.ok) {
+        appendProgress('ERROR: ' + (data.error || res.statusText));
+        setRunning(false);
+        return;
+      }
+    } catch (err) {
+      appendProgress('ERROR: ' + err.message);
+      setRunning(false);
+      return;
+    }
+
+    connectSSE(() => { loadProducts(); });
   }
 
   // ── SSE ──────────────────────────────────────────
-  function connectSSE() {
+  function connectSSE(onDone) {
     if (es) { es.close(); }
     es = new EventSource('/events');
     es.onmessage = (e) => {
@@ -359,7 +508,7 @@
         es.close();
         es = null;
         setRunning(false);
-        loadProducts();
+        if (onDone) onDone();
         return;
       }
       appendProgress(e.data);
@@ -372,12 +521,13 @@
   }
 
   // ── 状態管理 ─────────────────────────────────────
-  function setRunning(running) {
+  function setRunning(running, label) {
     isRunning = running;
-    updateBtn.disabled = running;
+    csvBtn.disabled = running;
+    runBtn.disabled = running;
     if (running) {
       statusBadge.className = 'badge busy';
-      statusText.textContent = '実行中…';
+      statusText.textContent = label || '実行中…';
     } else {
       statusBadge.className = 'badge idle';
       statusText.textContent = '待機中';
