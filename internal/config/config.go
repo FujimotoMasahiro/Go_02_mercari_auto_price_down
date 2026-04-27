@@ -1,4 +1,4 @@
-package mercari
+package config
 
 const (
 	MinPrice            = 3000
