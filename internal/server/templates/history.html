@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>値下げ履歴 — メルカリ自動値引きツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #22263a;
+      --border:   #2e3250;
+      --accent:   #ff6b35;
+      --green:    #22c55e;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --blue:     #60a5fa;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                   "Noto Sans JP", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 80px;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      width: 100%; max-width: 1100px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 36px;
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 13px; font-weight: 600; text-decoration: none;
+      transition: color .15s, border-color .15s; flex-shrink: 0;
+    }
+    .back-btn:hover { color: var(--text); border-color: var(--muted); }
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Card ────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%; max-width: 1100px;
+      margin-bottom: 20px;
+    }
+    .table-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .table-toolbar-label {
+      font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .08em; margin-right: auto;
+    }
+    .ghost-btn {
+      font-size: 12px; color: var(--muted); background: none;
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 12px; cursor: pointer;
+      transition: color .15s, border-color .15s; white-space: nowrap;
+    }
+    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── Table ───────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 14px;
+    }
+    thead { background: var(--surface2); position: sticky; top: 0; }
+    th {
+      padding: 12px 14px;
+      text-align: left; font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .07em;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    th.run-col { text-align: right; min-width: 130px; }
+    th.run-col .run-date { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
+    th.run-col .run-time { color: var(--muted); font-size: 11px; font-weight: 400; }
+
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text); line-height: 1.4; vertical-align: middle;
+    }
+    td.img-cell  { width: 56px; padding: 8px 10px; }
+    td.name-cell { min-width: 160px; max-width: 240px; }
+    td.num-cell  { color: var(--muted); font-size: 12px; width: 36px; }
+    td.price-cell {
+      text-align: right; font-family: "SF Mono","Menlo",monospace;
+      font-weight: 600; white-space: nowrap; min-width: 130px;
+    }
+    td.price-cell .yen      { color: var(--yellow); }
+    td.price-cell .yen-old  { color: var(--muted); text-decoration: line-through; font-size: 11px; display: block; margin-top: 2px; }
+    td.price-cell .no-data  { color: var(--border); font-size: 13px; }
+
+    .thumb {
+      width: 40px; height: 40px;
+      object-fit: cover; border-radius: 6px; display: block;
+    }
+    .no-img {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      background: var(--surface2); border-radius: 6px;
+      font-size: 18px; opacity: .45;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    .table-empty {
+      text-align: center; padding: 48px 16px;
+      color: var(--muted); font-size: 14px;
+    }
+    .table-empty .empty-icon { font-size: 36px; display: block; margin-bottom: 12px; opacity: .5; }
+
+    .summary { font-size: 12px; color: var(--muted); margin-top: 12px; text-align: right; }
+
+    footer { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="back-btn" href="/products">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    商品一覧
+  </a>
+  <div class="logo">📈</div>
+  <div>
+    <h1>値下げ履歴</h1>
+    <p>直近5回の値引き実行ごとの価格変動</p>
+  </div>
+</header>
+
+<div class="card">
+  <div class="table-toolbar">
+    <span class="table-toolbar-label">商品 × 実行日時</span>
+    <button class="ghost-btn" onclick="loadHistory()">更新</button>
+  </div>
+  <div class="table-wrap">
+    <table id="historyTable">
+      <thead id="historyHead"></thead>
+      <tbody id="historyBody">
+        <tr><td colspan="10" class="table-empty">
+          <span class="empty-icon">📊</span>読み込み中…
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="summary" id="summary"></div>
+</div>
+
+<footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
+
+<script>
+  async function loadHistory() {
+    try {
+      const res  = await fetch('/history-data');
+      const data = await res.json();
+      render(data);
+    } catch (err) {
+      document.getElementById('historyBody').innerHTML = `
+        <tr><td colspan="10" class="table-empty">
+          <span class="empty-icon">⚠️</span>エラー: ${escHtml(err.message)}
+        </td></tr>`;
+    }
+  }
+
+  function render({ runs, products }) {
+    const head    = document.getElementById('historyHead');
+    const body    = document.getElementById('historyBody');
+    const summary = document.getElementById('summary');
+
+    if (!runs || runs.length === 0) {
+      head.innerHTML = '';
+      body.innerHTML = `<tr><td colspan="10" class="table-empty">
+        <span class="empty-icon">📊</span>
+        値下げ履歴がありません。値引き実行後にここへ記録されます。
+      </td></tr>`;
+      summary.innerHTML = '';
+      return;
+    }
+
+    // ── ヘッダー行 ──────────────────────────────
+    const runHeaders = runs.map(r => {
+      const dt   = new Date(r.timestamp);
+      const date = dt.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' });
+      const time = dt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      return `<th class="run-col">
+        <span class="run-date">${escHtml(date)}</span><br>
+        <span class="run-time">${escHtml(time)}</span>
+      </th>`;
+    }).join('');
+
+    head.innerHTML = `<tr>
+      <th>#</th>
+      <th>画像</th>
+      <th>商品名</th>
+      ${runHeaders}
+    </tr>`;
+
+    // ── データ行 ────────────────────────────────
+    if (!products || products.length === 0) {
+      body.innerHTML = `<tr><td colspan="${3 + runs.length}" class="table-empty">
+        <span class="empty-icon">📦</span>商品データがありません。
+      </td></tr>`;
+      summary.innerHTML = '';
+      return;
+    }
+
+    body.innerHTML = products.map((p, i) => {
+      const img = p.imagePath
+        ? `<img src="${escHtml(p.imagePath)}" class="thumb" alt=""
+               onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'no-img',textContent:'📷'}))">`
+        : `<span class="no-img">📷</span>`;
+
+      const priceCells = (p.prices || []).map((price, col) => {
+        if (price === null || price === undefined) {
+          return `<td class="price-cell"><span class="no-data">—</span></td>`;
+        }
+        // 前回比の値下げ額を補足表示（次カラムが存在する場合）
+        const prev = p.prices[col + 1];
+        const diffHtml = (prev !== null && prev !== undefined)
+          ? `<span class="yen-old">¥${prev.toLocaleString('ja-JP')}</span>`
+          : '';
+        return `<td class="price-cell">
+          <span class="yen">¥${price.toLocaleString('ja-JP')}</span>
+          ${diffHtml}
+        </td>`;
+      }).join('');
+
+      return `<tr>
+        <td class="num-cell">${i + 1}</td>
+        <td class="img-cell">${img}</td>
+        <td class="name-cell">${escHtml(p.itemName || '（名称なし）')}</td>
+        ${priceCells}
+      </tr>`;
+    }).join('');
+
+    summary.innerHTML = `${products.length}件 / 直近${runs.length}回分`;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadHistory();
+</script>
+</body>
+</html>

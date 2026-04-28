@@ -20,6 +20,7 @@ import (
 	"github.com/chromedp/chromedp"
 
 	"mercari-pricelower/internal/config"
+	"mercari-pricelower/internal/history"
 	"mercari-pricelower/internal/logger"
 )
 
@@ -48,10 +49,19 @@ func RunDiscount(excludedIDs []string) {
 		}
 
 		appLogger.Info("値引き処理", "一括値引き", fmt.Sprintf("開始 (%d件 / 除外%d件)", len(targetIDs), len(excludedIDs)))
-		if err := discountPrices(ctx, targetIDs); err != nil {
+		discounts, err := discountPrices(ctx, targetIDs)
+		if err != nil {
 			appLogger.Error("値引き処理", "一括値引き", fmt.Sprintf("失敗: %v", err))
 		} else {
 			appLogger.Info("値引き処理", "一括値引き", "完了")
+		}
+		if len(discounts) > 0 {
+			if err := history.Append(history.Entry{
+				Timestamp: time.Now(),
+				Products:  discounts,
+			}); err != nil {
+				appLogger.Warn("値引き処理", "履歴記録", fmt.Sprintf("失敗: %v", err))
+			}
 		}
 
 		appLogger.Info("価格ログ", "スナップショット記録", "開始 (値引き後)")
@@ -331,7 +341,8 @@ func logPrice(ctx context.Context, ids []string) error {
 	return nil
 }
 
-func discountPrices(ctx context.Context, ids []string) error {
+func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscount, error) {
+	var discounts []history.ProductDiscount
 	for i, id := range ids {
 		screen := fmt.Sprintf("商品編集:%s", id)
 		editURL := fmt.Sprintf("https://jp.mercari.com/sell/edit/%s", id)
@@ -362,6 +373,13 @@ func discountPrices(ctx context.Context, ids []string) error {
 			appLogger.Error(screen, "商品情報取得", fmt.Sprintf("失敗: %v", err))
 			continue
 		}
+
+		var itemName string
+		chromedp.Run(ctx, chromedp.EvaluateAsDevTools(
+			`(function(){ var el = document.querySelector('textarea[name="name"]') || document.querySelector('input[name="name"]'); return el ? el.value : ''; })()`,
+			&itemName,
+		))
+		itemName = strings.TrimSpace(itemName)
 
 		if hasActivateBtn {
 			appLogger.Warn(screen, "出品状態確認", "非公開のためスキップ")
@@ -399,9 +417,15 @@ func discountPrices(ctx context.Context, ids []string) error {
 			chromedp.Run(ctx, chromedp.Reload(), chromedp.Sleep(2*time.Second))
 		} else {
 			appLogger.Info(screen, "値引き実行", "成功")
+			discounts = append(discounts, history.ProductDiscount{
+				ItemID:   id,
+				ItemName: itemName,
+				OldPrice: price,
+				NewPrice: newPrice,
+			})
 		}
 	}
-	return nil
+	return discounts, nil
 }
 
 // imageExt は画像URLから拡張子を取得します。

@@ -19,6 +19,9 @@ var indexHTML []byte
 //go:embed templates/products.html
 var productsHTML []byte
 
+//go:embed templates/history.html
+var historyHTML []byte
+
 var (
 	mu        sync.Mutex
 	isRunning bool
@@ -49,6 +52,8 @@ func Run() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/products", handleProducts)
+	mux.HandleFunc("/history", handleHistory)
+	mux.HandleFunc("/history-data", handleHistoryData)
 	mux.HandleFunc("/csv-data", handleCSVData)
 
 	imgDir := filepath.Join(projectRoot(), "img")
