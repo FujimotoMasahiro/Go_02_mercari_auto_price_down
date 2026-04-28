@@ -120,6 +120,13 @@
     td.price-cell .yen      { color: var(--yellow); }
     td.price-cell .yen-old  { color: var(--muted); text-decoration: line-through; font-size: 11px; display: block; margin-top: 2px; }
     td.price-cell .no-data  { color: var(--border); font-size: 13px; }
+    td.price-cell .skip-badge {
+      display: inline-block; background: rgba(245,158,11,.15);
+      border: 1px solid rgba(245,158,11,.4); color: var(--yellow);
+      border-radius: 4px; font-size: 10px; font-weight: 700;
+      padding: 1px 6px; font-family: inherit; letter-spacing: .02em;
+    }
+    td.price-cell .skip-price { color: var(--muted); font-size: 11px; display: block; margin-top: 3px; }
 
     .thumb {
       width: 40px; height: 40px;
@@ -244,19 +251,29 @@
                onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'no-img',textContent:'📷'}))">`
         : `<span class="no-img">📷</span>`;
 
-      const priceCells = (p.prices || []).map((price, col) => {
-        if (price === null || price === undefined) {
-          return `<td class="price-cell"><span class="no-data">—</span></td>`;
+      const priceCells = (p.cells || []).map(cell => {
+        if (cell.price !== null && cell.price !== undefined) {
+          // 値引き成功
+          const oldHtml = (cell.oldPrice !== null && cell.oldPrice !== undefined)
+            ? `<span class="yen-old">¥${cell.oldPrice.toLocaleString('ja-JP')}</span>`
+            : '';
+          return `<td class="price-cell">
+            <span class="yen">¥${cell.price.toLocaleString('ja-JP')}</span>
+            ${oldHtml}
+          </td>`;
         }
-        // 前回比の値下げ額を補足表示（次カラムが存在する場合）
-        const prev = p.prices[col + 1];
-        const diffHtml = (prev !== null && prev !== undefined)
-          ? `<span class="yen-old">¥${prev.toLocaleString('ja-JP')}</span>`
-          : '';
-        return `<td class="price-cell">
-          <span class="yen">¥${price.toLocaleString('ja-JP')}</span>
-          ${diffHtml}
-        </td>`;
+        if (cell.reason) {
+          // スキップ
+          const priceHtml = (cell.oldPrice !== null && cell.oldPrice !== undefined)
+            ? `<span class="skip-price">¥${cell.oldPrice.toLocaleString('ja-JP')}</span>`
+            : '';
+          return `<td class="price-cell">
+            <span class="skip-badge">${escHtml(cell.reason)}</span>
+            ${priceHtml}
+          </td>`;
+        }
+        // データなし
+        return `<td class="price-cell"><span class="no-data">—</span></td>`;
       }).join('');
 
       return `<tr>

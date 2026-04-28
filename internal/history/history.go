@@ -16,9 +16,17 @@ type ProductDiscount struct {
 	NewPrice int    `json:"newPrice"`
 }
 
+type SkippedProduct struct {
+	ItemID   string `json:"itemId"`
+	ItemName string `json:"itemName"`
+	Price    int    `json:"price"`
+	Reason   string `json:"reason"`
+}
+
 type Entry struct {
 	Timestamp time.Time         `json:"timestamp"`
 	Products  []ProductDiscount `json:"products"`
+	Skipped   []SkippedProduct  `json:"skipped,omitempty"`
 }
 
 func filePath() string {

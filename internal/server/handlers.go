@@ -46,11 +46,17 @@ type historyRunInfo struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+type historyCell struct {
+	Price    *int   `json:"price"`    // 値引き後価格（値引き成功時のみ）
+	OldPrice *int   `json:"oldPrice"` // 値引き前価格 or スキップ時の価格
+	Reason   string `json:"reason"`   // スキップ理由（""=値引き成功 or データなし）
+}
+
 type historyProductRow struct {
-	ItemID    string `json:"itemId"`
-	ItemName  string `json:"itemName"`
-	ImagePath string `json:"imagePath,omitempty"`
-	Prices    []*int `json:"prices"`
+	ItemID    string        `json:"itemId"`
+	ItemName  string        `json:"itemName"`
+	ImagePath string        `json:"imagePath,omitempty"`
+	Cells     []historyCell `json:"cells"`
 }
 
 func handleHistory(w http.ResponseWriter, r *http.Request) {
@@ -80,17 +86,28 @@ func handleHistoryData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 実行回ごとの商品価格マップ
-	runPrices := make([]map[string]int, len(entries))
+	// 実行回ごとの値引き成功マップ・スキップマップ
+	type discountInfo struct{ oldPrice, newPrice int }
+	type skipInfo struct{ price int; reason string }
+	runDiscounts := make([]map[string]discountInfo, len(entries))
+	runSkipped := make([]map[string]skipInfo, len(entries))
 	var productOrder []string
 	productNames := map[string]string{}
 	for i, entry := range entries {
-		runPrices[i] = map[string]int{}
+		runDiscounts[i] = map[string]discountInfo{}
+		runSkipped[i] = map[string]skipInfo{}
 		for _, p := range entry.Products {
-			runPrices[i][p.ItemID] = p.NewPrice
+			runDiscounts[i][p.ItemID] = discountInfo{oldPrice: p.OldPrice, newPrice: p.NewPrice}
 			if _, exists := productNames[p.ItemID]; !exists {
 				productOrder = append(productOrder, p.ItemID)
 				productNames[p.ItemID] = p.ItemName
+			}
+		}
+		for _, s := range entry.Skipped {
+			runSkipped[i][s.ItemID] = skipInfo{price: s.Price, reason: s.Reason}
+			if _, exists := productNames[s.ItemID]; !exists {
+				productOrder = append(productOrder, s.ItemID)
+				productNames[s.ItemID] = s.ItemName
 			}
 		}
 	}
@@ -103,17 +120,25 @@ func handleHistoryData(w http.ResponseWriter, r *http.Request) {
 	imgDir := filepath.Join(projectRoot(), "img")
 	products := make([]historyProductRow, 0, len(productOrder))
 	for _, id := range productOrder {
-		prices := make([]*int, len(entries))
+		cells := make([]historyCell, len(entries))
 		for i := range entries {
-			if p, ok := runPrices[i][id]; ok {
-				v := p
-				prices[i] = &v
+			if d, ok := runDiscounts[i][id]; ok {
+				oldP := d.oldPrice
+				newP := d.newPrice
+				cells[i] = historyCell{Price: &newP, OldPrice: &oldP}
+			} else if s, ok := runSkipped[i][id]; ok {
+				cell := historyCell{Reason: s.reason}
+				if s.price > 0 {
+					p := s.price
+					cell.OldPrice = &p
+				}
+				cells[i] = cell
 			}
 		}
 		row := historyProductRow{
 			ItemID:   id,
 			ItemName: productNames[id],
-			Prices:   prices,
+			Cells:    cells,
 		}
 		if matches, _ := filepath.Glob(filepath.Join(imgDir, id+".*")); len(matches) > 0 {
 			row.ImagePath = "/img/" + filepath.Base(matches[0])
