@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -208,6 +209,104 @@ func handleCSVData(w http.ResponseWriter, r *http.Request) {
 		"items": items,
 		"file":  latestFile,
 	})
+}
+
+func handleResearch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(researchHTML)
+}
+
+func handleResearchData(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	researchDir := filepath.Join(projectRoot(), "research")
+	entries, err := os.ReadDir(researchDir)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"items": []map[string]interface{}{}, "file": ""})
+		return
+	}
+
+	var csvFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".csv") {
+			csvFiles = append(csvFiles, e.Name())
+		}
+	}
+	if len(csvFiles) == 0 {
+		json.NewEncoder(w).Encode(map[string]interface{}{"items": []map[string]interface{}{}, "file": ""})
+		return
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(csvFiles)))
+	latestFile := csvFiles[0]
+
+	f, err := os.Open(filepath.Join(researchDir, latestFile))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	records, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type researchItem struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Price int    `json:"price"`
+		Page  int    `json:"page"`
+	}
+	var items []researchItem
+	for i, row := range records {
+		if i == 0 {
+			continue
+		}
+		if len(row) < 4 {
+			continue
+		}
+		price, _ := strconv.Atoi(row[2])
+		page, _ := strconv.Atoi(row[3])
+		items = append(items, researchItem{ID: row[0], Name: row[1], Price: price, Page: page})
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"items": items,
+		"file":  latestFile,
+	})
+}
+
+func handleRunResearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var body struct {
+		CategoryID   string `json:"categoryId"`
+		CategoryName string `json:"categoryName"`
+		Pages        int    `json:"pages"`
+	}
+	if r.Header.Get("Content-Type") == "application/json" {
+		json.NewDecoder(r.Body).Decode(&body)
+	}
+	if body.Pages < 1 {
+		body.Pages = 5
+	}
+	if body.Pages > 10 {
+		body.Pages = 10
+	}
+	if body.CategoryName == "" {
+		body.CategoryName = "すべて"
+	}
+
+	extraArgs := []string{
+		"-category-id=" + body.CategoryID,
+		"-category=" + body.CategoryName,
+		fmt.Sprintf("-pages=%d", body.Pages),
+	}
+	startBinary(w, findResearchBinary, extraArgs...)
 }
 
 func handleRun(w http.ResponseWriter, r *http.Request) {

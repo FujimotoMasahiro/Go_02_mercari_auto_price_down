@@ -22,5 +22,17 @@
     "goos": "windows",
     "output": "bin/メルカリCSV作成ツール_windows_ver100.exe",
     "pkg": "./cmd/csvonly"
+  },
+  {
+    "name": "メルカリリサーチツール (macOS)",
+    "goos": "darwin",
+    "output": "bin/メルカリリサーチツール_mac_ver100",
+    "pkg": "./cmd/research"
+  },
+  {
+    "name": "メルカリリサーチツール (Windows)",
+    "goos": "windows",
+    "output": "bin/メルカリリサーチツール_windows_ver100.exe",
+    "pkg": "./cmd/research"
   }
 ]

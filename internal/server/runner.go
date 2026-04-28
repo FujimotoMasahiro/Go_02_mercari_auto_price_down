@@ -152,6 +152,10 @@ func findCSVBinary() string {
 	return findBinaryByName("メルカリCSV作成ツール_mac_ver100", "メルカリCSV作成ツール_windows_ver100.exe")
 }
 
+func findResearchBinary() string {
+	return findBinaryByName("メルカリリサーチツール_mac_ver100", "メルカリリサーチツール_windows_ver100.exe")
+}
+
 func findBinaryByName(macName, winName string) string {
 	root := projectRoot()
 
