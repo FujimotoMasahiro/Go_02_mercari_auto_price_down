@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"mercari-pricelower/internal/history"
 )
 
 func openBrowser(url string) {
@@ -38,6 +40,91 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 func handleProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(productsHTML)
+}
+
+type historyRunInfo struct {
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type historyProductRow struct {
+	ItemID    string `json:"itemId"`
+	ItemName  string `json:"itemName"`
+	ImagePath string `json:"imagePath,omitempty"`
+	Prices    []*int `json:"prices"`
+}
+
+func handleHistory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(historyHTML)
+}
+
+func handleHistoryData(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	entries, err := history.Load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	const maxRuns = 5
+	if len(entries) > maxRuns {
+		entries = entries[:maxRuns]
+	}
+
+	if len(entries) == 0 {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"runs":     []historyRunInfo{},
+			"products": []historyProductRow{},
+		})
+		return
+	}
+
+	// 実行回ごとの商品価格マップ
+	runPrices := make([]map[string]int, len(entries))
+	var productOrder []string
+	productNames := map[string]string{}
+	for i, entry := range entries {
+		runPrices[i] = map[string]int{}
+		for _, p := range entry.Products {
+			runPrices[i][p.ItemID] = p.NewPrice
+			if _, exists := productNames[p.ItemID]; !exists {
+				productOrder = append(productOrder, p.ItemID)
+				productNames[p.ItemID] = p.ItemName
+			}
+		}
+	}
+
+	runs := make([]historyRunInfo, len(entries))
+	for i, e := range entries {
+		runs[i] = historyRunInfo{Timestamp: e.Timestamp}
+	}
+
+	imgDir := filepath.Join(projectRoot(), "img")
+	products := make([]historyProductRow, 0, len(productOrder))
+	for _, id := range productOrder {
+		prices := make([]*int, len(entries))
+		for i := range entries {
+			if p, ok := runPrices[i][id]; ok {
+				v := p
+				prices[i] = &v
+			}
+		}
+		row := historyProductRow{
+			ItemID:   id,
+			ItemName: productNames[id],
+			Prices:   prices,
+		}
+		if matches, _ := filepath.Glob(filepath.Join(imgDir, id+".*")); len(matches) > 0 {
+			row.ImagePath = "/img/" + filepath.Base(matches[0])
+		}
+		products = append(products, row)
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"runs":     runs,
+		"products": products,
+	})
 }
 
 func handleCSVData(w http.ResponseWriter, r *http.Request) {
