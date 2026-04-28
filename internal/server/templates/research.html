@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>売れ筋リサーチ — メルカリ自動値引きツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #22263a;
+      --border:   #2e3250;
+      --accent:   #ff6b35;
+      --green:    #22c55e;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --blue:     #60a5fa;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --console:  #0a0c14;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                   "Noto Sans JP", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 80px;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      width: 100%; max-width: 1100px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 36px;
+    }
+    .logo {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .back-link {
+      margin-left: auto;
+      font-size: 13px; color: var(--muted);
+      text-decoration: none;
+      display: flex; align-items: center; gap: 4px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: color .15s, border-color .15s;
+    }
+    .back-link:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── Controls ─────────────────────────── */
+    .controls-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%; max-width: 1100px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 16px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    select, input[type="number"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color .15s;
+      min-width: 200px;
+    }
+    select:focus, input[type="number"]:focus {
+      border-color: var(--blue);
+    }
+    input[type="number"] { min-width: 80px; width: 80px; }
+
+    .run-btn {
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px; font-weight: 700;
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .run-btn:hover { opacity: .9; }
+    .run-btn:active { transform: scale(.98); }
+    .run-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .stop-btn {
+      background: none;
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 14px; font-weight: 700;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: background .15s;
+      display: none;
+    }
+    .stop-btn:hover { background: rgba(239,68,68,.1); }
+
+    /* ── Status bar ──────────────────────── */
+    .status-bar {
+      width: 100%; max-width: 1100px;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    .status-dot.running { background: var(--green); animation: pulse 1s infinite; }
+    .status-dot.done    { background: var(--blue); }
+    .status-dot.error   { background: var(--red); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .4; }
+    }
+    .status-text { color: var(--muted); }
+
+    /* ── Console ─────────────────────────── */
+    .console-wrap {
+      width: 100%; max-width: 1100px;
+      margin-bottom: 24px;
+    }
+    .console-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .console-label {
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+    }
+    .ghost-btn {
+      font-size: 12px; color: var(--muted); background: none;
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+    #console {
+      background: var(--console);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      height: 180px;
+      overflow-y: auto;
+      font-family: "SF Mono","Fira Code","Menlo",monospace;
+      font-size: 12px; line-height: 1.65;
+      white-space: pre-wrap; word-break: break-all;
+      color: #718096;
+    }
+    #console::-webkit-scrollbar { width: 5px; }
+    #console::-webkit-scrollbar-track { background: transparent; }
+    #console::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Results ─────────────────────────── */
+    .results-header {
+      width: 100%; max-width: 1100px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-label {
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .09em;
+    }
+    .results-meta {
+      font-size: 12px; color: var(--muted);
+    }
+    .results-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%; max-width: 1100px;
+      overflow: hidden;
+    }
+
+    /* ── Table ───────────────────────────── */
+    .tbl-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      background: var(--surface2);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td {
+      padding: 10px 14px;
+      vertical-align: middle;
+    }
+    .td-id {
+      font-family: "SF Mono","Menlo",monospace;
+      font-size: 11px; color: var(--muted);
+      white-space: nowrap;
+    }
+    .td-name {
+      max-width: 420px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .td-price {
+      text-align: right; white-space: nowrap;
+      font-weight: 600;
+      color: var(--yellow);
+    }
+    .td-page {
+      text-align: center;
+      font-size: 11px; color: var(--muted);
+    }
+    .item-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .item-link:hover { text-decoration: underline; }
+
+    /* ── Empty / Loading ─────────────────── */
+    .placeholder {
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .placeholder .ph-icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: .4; }
+
+    /* ── Pagination ──────────────────────── */
+    .pagination {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .page-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: border-color .12s, background .12s;
+    }
+    .page-btn:hover { border-color: var(--blue); }
+    .page-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+    .page-info { font-size: 12px; color: var(--muted); }
+
+    footer { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🔍</div>
+  <div>
+    <h1>売れ筋リサーチ</h1>
+    <p>カテゴリー別の売り切れ商品を調査して売上・利益を最大化</p>
+  </div>
+  <a class="back-link" href="/">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    メニューへ
+  </a>
+</header>
+
+<!-- Controls -->
+<div class="controls-card">
+  <div class="control-group">
+    <span class="control-label">カテゴリー</span>
+    <select id="categorySelect">
+      <option value="">すべて</option>
+      <option value="5">レディース</option>
+      <option value="6">メンズ</option>
+      <option value="7">ベビー・キッズ</option>
+      <option value="8">インテリア・住まい・小物</option>
+      <option value="9">本・音楽・ゲーム</option>
+      <option value="10">おもちゃ・ホビー・グッズ</option>
+      <option value="11">コスメ・香水・美容</option>
+      <option value="12">家電・スマホ・カメラ</option>
+      <option value="13">スポーツ・レジャー</option>
+      <option value="14">ハンドメイド</option>
+      <option value="15">チケット</option>
+      <option value="16">自動車・オートバイ</option>
+      <option value="17">その他</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <span class="control-label">ページ数</span>
+    <input type="number" id="pagesInput" value="5" min="1" max="10">
+  </div>
+  <button class="run-btn" id="runBtn" onclick="runResearch()">▶ リサーチ開始</button>
+  <button class="stop-btn" id="stopBtn" onclick="stopResearch()">■ 停止</button>
+  <button class="ghost-btn" onclick="loadResults()" style="margin-left:auto">最新結果を表示</button>
+</div>
+
+<!-- Status -->
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <span class="status-text" id="statusText">待機中</span>
+</div>
+
+<!-- Console -->
+<div class="console-wrap">
+  <div class="console-header">
+    <span class="console-label">実行ログ</span>
+    <button class="ghost-btn" onclick="document.getElementById('console').textContent=''">クリア</button>
+  </div>
+  <div id="console"></div>
+</div>
+
+<!-- Results -->
+<div class="results-header">
+  <span class="section-label">リサーチ結果</span>
+  <span class="results-meta" id="resultsMeta"></span>
+</div>
+<div class="results-card">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>商品ID</th>
+          <th>商品名</th>
+          <th>価格</th>
+          <th>ページ</th>
+          <th>リンク</th>
+        </tr>
+      </thead>
+      <tbody id="resultsTbody">
+        <tr><td colspan="6">
+          <div class="placeholder">
+            <span class="ph-icon">🔍</span>
+            カテゴリーを選択して「リサーチ開始」を押してください
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination" id="pagination" style="display:none"></div>
+</div>
+
+<footer>Mercari Auto Price Down Tool — 売れ筋リサーチ</footer>
+
+<script>
+  const consoleEl   = document.getElementById('console');
+  const statusDot   = document.getElementById('statusDot');
+  const statusText  = document.getElementById('statusText');
+  const runBtn      = document.getElementById('runBtn');
+  const stopBtn     = document.getElementById('stopBtn');
+  const resultsMeta = document.getElementById('resultsMeta');
+
+  let allItems = [];
+  let currentPage = 1;
+  const PAGE_SIZE = 50;
+  let eventSource = null;
+
+  // ── State ────────────────────────────────────────────────
+  function setRunning(running) {
+    runBtn.disabled  = running;
+    stopBtn.style.display = running ? 'inline-block' : 'none';
+    statusDot.className  = 'status-dot' + (running ? ' running' : '');
+    statusText.textContent = running ? 'リサーチ実行中...' : '待機中';
+  }
+
+  function setDone(ok) {
+    statusDot.className = 'status-dot ' + (ok ? 'done' : 'error');
+    statusText.textContent = ok ? '完了' : 'エラー';
+    runBtn.disabled = false;
+    stopBtn.style.display = 'none';
+  }
+
+  // ── Console ──────────────────────────────────────────────
+  function log(msg) {
+    const line = document.createElement('div');
+    line.textContent = msg;
+    if (msg.startsWith('[終了]')) line.style.color = '#22c55e';
+    if (msg.startsWith('ERROR') || msg.includes('失敗')) line.style.color = '#ef4444';
+    consoleEl.appendChild(line);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  // ── Run / Stop ───────────────────────────────────────────
+  async function runResearch() {
+    const categoryId   = document.getElementById('categorySelect').value;
+    const categoryName = document.getElementById('categorySelect').selectedOptions[0].text;
+    const pages        = parseInt(document.getElementById('pagesInput').value) || 5;
+
+    consoleEl.textContent = '';
+    setRunning(true);
+
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    eventSource = new EventSource('/events');
+    eventSource.onmessage = e => {
+      if (e.data === '__DONE__') {
+        eventSource.close(); eventSource = null;
+        setDone(true);
+        setTimeout(loadResults, 500);
+        return;
+      }
+      log(e.data);
+    };
+    eventSource.onerror = () => { setDone(false); };
+
+    try {
+      const res = await fetch('/run-research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId, categoryName, pages }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        log('ERROR: ' + data.error);
+        setDone(false);
+        if (eventSource) { eventSource.close(); eventSource = null; }
+      }
+    } catch (err) {
+      log('ERROR: ' + err.message);
+      setDone(false);
+    }
+  }
+
+  async function stopResearch() {
+    await fetch('/stop', { method: 'POST' });
+  }
+
+  // ── Load results ─────────────────────────────────────────
+  async function loadResults() {
+    try {
+      const res  = await fetch('/research-data');
+      const data = await res.json();
+      allItems = data.items || [];
+      const fname = data.file || '';
+      if (allItems.length === 0) {
+        resultsMeta.textContent = '';
+        renderTable([]);
+        return;
+      }
+      resultsMeta.textContent = `${fname}  /  ${allItems.length}件`;
+      currentPage = 1;
+      renderTablePage();
+    } catch (err) {
+      resultsMeta.textContent = 'エラー: ' + err.message;
+    }
+  }
+
+  function renderTablePage() {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const slice = allItems.slice(start, start + PAGE_SIZE);
+    renderTable(slice, start);
+    renderPagination();
+  }
+
+  function renderTable(items, offset = 0) {
+    const tbody = document.getElementById('resultsTbody');
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="6">
+        <div class="placeholder">
+          <span class="ph-icon">📭</span>
+          結果がありません。リサーチを実行してください。
+        </div>
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = items.map((item, i) => {
+      const rank  = offset + i + 1;
+      const price = item.price > 0 ? `¥${item.price.toLocaleString()}` : '—';
+      const url   = `https://jp.mercari.com/item/${escHtml(item.id)}`;
+      return `<tr>
+        <td class="td-page">${rank}</td>
+        <td class="td-id">${escHtml(item.id)}</td>
+        <td class="td-name" title="${escHtml(item.name)}">${escHtml(item.name)}</td>
+        <td class="td-price">${price}</td>
+        <td class="td-page">${item.page}</td>
+        <td><a class="item-link" href="${url}" target="_blank" rel="noopener">開く ↗</a></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderPagination() {
+    const pag = document.getElementById('pagination');
+    const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+    if (totalPages <= 1) { pag.style.display = 'none'; return; }
+    pag.style.display = 'flex';
+    pag.innerHTML = '';
+
+    const addBtn = (label, page, active = false, disabled = false) => {
+      const b = document.createElement('button');
+      b.className = 'page-btn' + (active ? ' active' : '');
+      b.textContent = label;
+      b.disabled = disabled;
+      b.onclick = () => { currentPage = page; renderTablePage(); };
+      pag.appendChild(b);
+    };
+
+    addBtn('‹', currentPage - 1, false, currentPage === 1);
+    for (let p = 1; p <= totalPages; p++) {
+      addBtn(p, p, p === currentPage);
+    }
+    addBtn('›', currentPage + 1, false, currentPage === totalPages);
+
+    const info = document.createElement('span');
+    info.className = 'page-info';
+    const start = (currentPage - 1) * PAGE_SIZE + 1;
+    const end   = Math.min(currentPage * PAGE_SIZE, allItems.length);
+    info.textContent = `${start}–${end} / ${allItems.length}件`;
+    pag.appendChild(info);
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  loadResults();
+</script>
+</body>
+</html>
