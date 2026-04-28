@@ -40,25 +40,32 @@ func RunDiscount(excludedIDs []string) {
 			excluded[id] = true
 		}
 		var targetIDs []string
+		var skippedExcluded []history.SkippedProduct
 		for _, id := range itemIDs {
 			if excluded[id] {
 				appLogger.Info("値引き処理", fmt.Sprintf("商品%s", id), "対象外指定のためスキップ")
+				skippedExcluded = append(skippedExcluded, history.SkippedProduct{
+					ItemID: id,
+					Reason: "対象外指定",
+				})
 			} else {
 				targetIDs = append(targetIDs, id)
 			}
 		}
 
 		appLogger.Info("値引き処理", "一括値引き", fmt.Sprintf("開始 (%d件 / 除外%d件)", len(targetIDs), len(excludedIDs)))
-		discounts, err := discountPrices(ctx, targetIDs)
+		discounts, skippedFromDiscount, err := discountPrices(ctx, targetIDs)
 		if err != nil {
 			appLogger.Error("値引き処理", "一括値引き", fmt.Sprintf("失敗: %v", err))
 		} else {
 			appLogger.Info("値引き処理", "一括値引き", "完了")
 		}
-		if len(discounts) > 0 {
+		allSkipped := append(skippedExcluded, skippedFromDiscount...)
+		if len(discounts) > 0 || len(allSkipped) > 0 {
 			if err := history.Append(history.Entry{
 				Timestamp: time.Now(),
 				Products:  discounts,
+				Skipped:   allSkipped,
 			}); err != nil {
 				appLogger.Warn("値引き処理", "履歴記録", fmt.Sprintf("失敗: %v", err))
 			}
@@ -341,8 +348,9 @@ func logPrice(ctx context.Context, ids []string) error {
 	return nil
 }
 
-func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscount, error) {
+func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscount, []history.SkippedProduct, error) {
 	var discounts []history.ProductDiscount
+	var skipped []history.SkippedProduct
 	for i, id := range ids {
 		screen := fmt.Sprintf("商品編集:%s", id)
 		editURL := fmt.Sprintf("https://jp.mercari.com/sell/edit/%s", id)
@@ -350,8 +358,6 @@ func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscoun
 		appLogger.Info(screen, fmt.Sprintf("(%d/%d) 画面遷移", i+1, len(ids)), editURL)
 
 		nodePriceInput := `input[name="price"]`
-		var hasActivateBtn bool
-		var priceStr string
 
 		statusCode, err := navigateWithStatus(ctx, editURL,
 			chromedp.WaitVisible(`body`, chromedp.ByQuery),
@@ -362,18 +368,14 @@ func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscoun
 		}
 		appLogger.Info(screen, "画面遷移", statusLabel(statusCode))
 
-		err = chromedp.Run(ctx,
-			chromedp.EvaluateAsDevTools(
-				`document.querySelector('button[data-testid="activate-button"]') !== null`,
-				&hasActivateBtn,
-			),
-			chromedp.Value(nodePriceInput, &priceStr, chromedp.ByQuery),
-		)
-		if err != nil {
-			appLogger.Error(screen, "商品情報取得", fmt.Sprintf("失敗: %v", err))
-			continue
-		}
+		// 非公開チェック
+		var hasActivateBtn bool
+		chromedp.Run(ctx, chromedp.EvaluateAsDevTools(
+			`document.querySelector('button[data-testid="activate-button"]') !== null`,
+			&hasActivateBtn,
+		))
 
+		// 商品名取得
 		var itemName string
 		chromedp.Run(ctx, chromedp.EvaluateAsDevTools(
 			`(function(){ var el = document.querySelector('textarea[name="name"]') || document.querySelector('input[name="name"]'); return el ? el.value : ''; })()`,
@@ -383,6 +385,17 @@ func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscoun
 
 		if hasActivateBtn {
 			appLogger.Warn(screen, "出品状態確認", "非公開のためスキップ")
+			skipped = append(skipped, history.SkippedProduct{
+				ItemID:   id,
+				ItemName: itemName,
+				Reason:   "非公開",
+			})
+			continue
+		}
+
+		var priceStr string
+		if err := chromedp.Run(ctx, chromedp.Value(nodePriceInput, &priceStr, chromedp.ByQuery)); err != nil {
+			appLogger.Error(screen, "商品情報取得", fmt.Sprintf("失敗: %v", err))
 			continue
 		}
 
@@ -396,6 +409,12 @@ func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscoun
 		newPrice := int(math.Round(float64(price) / 100 * 99))
 		if newPrice < config.MinPrice {
 			appLogger.Warn(screen, "値引き判定", fmt.Sprintf("%d円 → %d円 は最低価格%d円未満のためスキップ", price, newPrice, config.MinPrice))
+			skipped = append(skipped, history.SkippedProduct{
+				ItemID:   id,
+				ItemName: itemName,
+				Price:    price,
+				Reason:   fmt.Sprintf("最低価格未満(%d円)", price),
+			})
 			continue
 		}
 
@@ -414,6 +433,12 @@ func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscoun
 		cancelTimeout()
 		if err != nil {
 			appLogger.Error(screen, "値引き実行", fmt.Sprintf("失敗(タイムアウト等): %v", err))
+			skipped = append(skipped, history.SkippedProduct{
+				ItemID:   id,
+				ItemName: itemName,
+				Price:    price,
+				Reason:   "処理失敗",
+			})
 			chromedp.Run(ctx, chromedp.Reload(), chromedp.Sleep(2*time.Second))
 		} else {
 			appLogger.Info(screen, "値引き実行", "成功")
@@ -425,7 +450,7 @@ func discountPrices(ctx context.Context, ids []string) ([]history.ProductDiscoun
 			})
 		}
 	}
-	return discounts, nil
+	return discounts, skipped, nil
 }
 
 // imageExt は画像URLから拡張子を取得します。
