@@ -221,6 +221,67 @@
       margin-top: 16px; font-size: 12px;
       color: var(--muted); text-align: center;
     }
+
+    /* ── Nav Drawer ──────────────────────────────────── */
+    .ham-btn {
+      position: fixed; top: 16px; right: 16px; z-index: 1000;
+      width: 42px; height: 42px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 5px;
+      transition: border-color .15s, background .15s;
+    }
+    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
+    .ham-line {
+      width: 18px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: transform .25s ease, opacity .2s ease;
+    }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav-backdrop {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
+    .nav-drawer {
+      position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950;
+      width: 260px; background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; padding-top: 16px;
+      transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto;
+    }
+    .nav-drawer.is-open { right: 0; }
+    .nav-drawer-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 18px 18px; border-bottom: 1px solid var(--border);
+    }
+    .nav-drawer-logo {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 17px; flex-shrink: 0;
+    }
+    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
+    .nav-links { padding: 10px 0; flex: 1; }
+    .nav-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 11px 18px; text-decoration: none; color: var(--muted);
+      font-size: 14px; font-weight: 500;
+      border-left: 3px solid transparent;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.is-active {
+      color: var(--text); background: rgba(255,107,53,.08);
+      border-left-color: var(--accent); font-weight: 600;
+    }
+    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
+    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
   </style>
 </head>
 <body>
@@ -384,6 +445,52 @@
 
   loadLogList();
   setInterval(loadLogList, 60_000);
+</script>
+
+<!-- ─── Navigation Drawer ──────────────────────────────── -->
+<button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+</button>
+<div class="nav-backdrop" id="navBackdrop" onclick="navClose()"></div>
+<nav class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <div class="nav-drawer-head">
+    <div class="nav-drawer-logo">🏷️</div>
+    <div>
+      <div class="nav-drawer-title">メルカリ 値引きツール</div>
+      <div class="nav-drawer-sub">管理メニュー</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
+    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
+  </div>
+</nav>
+<script>
+  (function() {
+    const p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
+      if (el.dataset.navpath === p) el.classList.add('is-active');
+    });
+  })();
+  function navToggle() {
+    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+    document.getElementById('hamBtn').classList.toggle('is-open', open);
+    document.getElementById('navBackdrop').classList.toggle('is-open', open);
+    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
+  }
+  function navClose() {
+    document.getElementById('navDrawer').classList.remove('is-open');
+    document.getElementById('hamBtn').classList.remove('is-open');
+    document.getElementById('navBackdrop').classList.remove('is-open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
 </script>
 </body>
 </html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>設定 — メルカリ自動値引きツール</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #22263a;
+      --border:   #2e3250;
+      --accent:   #ff6b35;
+      --green:    #22c55e;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --blue:     #60a5fa;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+                   "Noto Sans JP", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 80px;
+    }
+
+    /* ── Header ────────────────────────────────── */
+    header {
+      width: 100%; max-width: 680px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 36px;
+      padding-right: 56px; /* hamburger button space */
+    }
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #475569, #334155);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Card ──────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%; max-width: 680px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .09em; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Setting row ───────────────────────────── */
+    .setting-row {
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 16px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .setting-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .setting-row:first-of-type { padding-top: 0; }
+
+    .setting-info { flex: 1; min-width: 0; }
+    .setting-label {
+      font-size: 15px; font-weight: 600; color: var(--text);
+      margin-bottom: 4px;
+    }
+    .setting-desc {
+      font-size: 12px; color: var(--muted); line-height: 1.5;
+    }
+    .setting-tag {
+      display: inline-block;
+      font-size: 10px; font-weight: 700;
+      background: rgba(100,116,139,.15);
+      border: 1px solid rgba(100,116,139,.3);
+      color: var(--muted);
+      border-radius: 4px; padding: 1px 6px;
+      margin-top: 4px; letter-spacing: .04em;
+    }
+
+    /* ── Toggle switch ─────────────────────────── */
+    .toggle-wrap { flex-shrink: 0; }
+    .toggle {
+      position: relative; display: inline-block;
+      width: 52px; height: 28px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px; cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px;
+      background: var(--muted); border-radius: 50%;
+      transition: transform .22s ease, background .2s;
+    }
+    .toggle input:checked + .toggle-track {
+      background: var(--accent); border-color: var(--accent);
+    }
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(24px); background: #fff;
+    }
+    .toggle input:focus-visible + .toggle-track {
+      outline: 2px solid var(--accent); outline-offset: 2px;
+    }
+
+    /* ── Number input ──────────────────────────── */
+    .num-input-wrap {
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .num-input-prefix,
+    .num-input-suffix {
+      font-size: 13px; color: var(--muted); white-space: nowrap;
+    }
+    .num-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px; font-weight: 600;
+      font-family: "SF Mono","Menlo",monospace;
+      padding: 8px 12px;
+      width: 110px; text-align: right;
+      outline: none;
+      transition: border-color .15s;
+      -moz-appearance: textfield;
+    }
+    .num-input::-webkit-inner-spin-button,
+    .num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .num-input:focus { border-color: var(--blue); }
+
+    /* ── Save button ───────────────────────────── */
+    .save-row {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 14px; margin-top: 4px;
+    }
+    .save-btn {
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700;
+      padding: 13px 32px; cursor: pointer;
+      transition: opacity .2s, transform .1s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .save-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .save-btn:active:not(:disabled) { transform: translateY(0); }
+    .save-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Feedback ──────────────────────────────── */
+    .feedback {
+      font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+      opacity: 0; transition: opacity .3s;
+    }
+    .feedback.show { opacity: 1; }
+    .feedback.ok  { color: var(--green); }
+    .feedback.err { color: var(--red); }
+
+    /* ── Info banner ───────────────────────────── */
+    .info-banner {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 14px 18px;
+      background: rgba(96,165,250,.07);
+      border: 1px solid rgba(96,165,250,.2);
+      border-radius: 10px;
+      font-size: 13px; color: var(--muted); line-height: 1.55;
+      width: 100%; max-width: 680px;
+      margin-bottom: 20px;
+    }
+    .info-banner-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    footer { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+
+    /* ── Nav Drawer ──────────────────────────────────── */
+    .ham-btn {
+      position: fixed; top: 16px; right: 16px; z-index: 1000;
+      width: 42px; height: 42px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 5px;
+      transition: border-color .15s, background .15s;
+    }
+    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
+    .ham-line {
+      width: 18px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: transform .25s ease, opacity .2s ease;
+    }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav-backdrop {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
+    .nav-drawer {
+      position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950;
+      width: 260px; background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; padding-top: 16px;
+      transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto;
+    }
+    .nav-drawer.is-open { right: 0; }
+    .nav-drawer-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 18px 18px; border-bottom: 1px solid var(--border);
+    }
+    .nav-drawer-logo {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 17px; flex-shrink: 0;
+    }
+    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
+    .nav-links { padding: 10px 0; flex: 1; }
+    .nav-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 11px 18px; text-decoration: none; color: var(--muted);
+      font-size: 14px; font-weight: 500;
+      border-left: 3px solid transparent;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.is-active {
+      color: var(--text); background: rgba(255,107,53,.08);
+      border-left-color: var(--accent); font-weight: 600;
+    }
+    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
+    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚙️</div>
+  <div>
+    <h1>設定</h1>
+    <p>config.json の内容を編集できます</p>
+  </div>
+</header>
+
+<div class="info-banner">
+  <span class="info-banner-icon">💡</span>
+  <span>設定の変更は<strong>次回のスクレイピング実行時</strong>から反映されます。現在実行中の処理には影響しません。</span>
+</div>
+
+<!-- ブラウザ設定 -->
+<div class="card">
+  <div class="card-title">🖥️ ブラウザ設定</div>
+
+  <div class="setting-row">
+    <div class="setting-info">
+      <div class="setting-label">ヘッドレスモード</div>
+      <div class="setting-desc">
+        ONにするとブラウザ画面を表示せずにバックグラウンドで動作します。<br>
+        OFFにすると実際のブラウザ操作画面が表示されます（デバッグ時に便利）。
+      </div>
+    </div>
+    <div class="toggle-wrap">
+      <label class="toggle">
+        <input type="checkbox" id="headlessToggle">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+  </div>
+
+</div>
+
+<!-- 値引き設定 -->
+<div class="card">
+  <div class="card-title">💴 値引き設定</div>
+
+  <div class="setting-row">
+    <div class="setting-info">
+      <div class="setting-label">最低価格</div>
+      <div class="setting-desc">値引き後の価格がこの金額を下回る場合はスキップします。</div>
+    </div>
+    <div class="num-input-wrap">
+      <span class="num-input-prefix">¥</span>
+      <input type="number" class="num-input" id="minPriceInput" min="0" max="9999999" step="100">
+    </div>
+  </div>
+
+  <div class="setting-row">
+    <div class="setting-info">
+      <div class="setting-label">値下げ幅</div>
+      <div class="setting-desc">1回の値下げで下げる金額（将来の機能拡張用）。</div>
+      <span class="setting-tag">RESERVED</span>
+    </div>
+    <div class="num-input-wrap">
+      <span class="num-input-prefix">¥</span>
+      <input type="number" class="num-input" id="priceDecreaseInput" min="0" max="99999" step="10">
+    </div>
+  </div>
+</div>
+
+<!-- 保存 -->
+<div class="card" style="padding: 20px 28px;">
+  <div class="save-row">
+    <div class="feedback" id="feedback"></div>
+    <button class="save-btn" id="saveBtn" onclick="saveConfig()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+      設定を保存
+    </button>
+  </div>
+</div>
+
+<footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
+
+<!-- ─── Navigation Drawer ──────────────────────────────── -->
+<button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+</button>
+<div class="nav-backdrop" id="navBackdrop" onclick="navClose()"></div>
+<nav class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <div class="nav-drawer-head">
+    <div class="nav-drawer-logo">🏷️</div>
+    <div>
+      <div class="nav-drawer-title">メルカリ 値引きツール</div>
+      <div class="nav-drawer-sub">管理メニュー</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
+    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
+  </div>
+</nav>
+
+<script>
+  // ── Nav ──────────────────────────────────────────────────
+  (function() {
+    const p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
+      if (el.dataset.navpath === p) el.classList.add('is-active');
+    });
+  })();
+  function navToggle() {
+    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+    document.getElementById('hamBtn').classList.toggle('is-open', open);
+    document.getElementById('navBackdrop').classList.toggle('is-open', open);
+    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
+  }
+  function navClose() {
+    document.getElementById('navDrawer').classList.remove('is-open');
+    document.getElementById('hamBtn').classList.remove('is-open');
+    document.getElementById('navBackdrop').classList.remove('is-open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
+
+  // ── Config ───────────────────────────────────────────────
+  const headlessToggle     = document.getElementById('headlessToggle');
+  const minPriceInput      = document.getElementById('minPriceInput');
+  const priceDecreaseInput = document.getElementById('priceDecreaseInput');
+  const saveBtn            = document.getElementById('saveBtn');
+  const feedback           = document.getElementById('feedback');
+
+  async function loadConfig() {
+    try {
+      const res  = await fetch('/api/config');
+      const cfg  = await res.json();
+      headlessToggle.checked   = !!cfg.headless;
+      minPriceInput.value      = cfg.min_price             ?? 3000;
+      priceDecreaseInput.value = cfg.price_decrease_amount ?? 100;
+    } catch (err) {
+      showFeedback('読み込み失敗: ' + err.message, false);
+    }
+  }
+
+  async function saveConfig() {
+    saveBtn.disabled = true;
+    feedback.className = 'feedback';
+    feedback.textContent = '';
+
+    const body = {
+      headless:              headlessToggle.checked,
+      min_price:             parseInt(minPriceInput.value)      || 0,
+      price_decrease_amount: parseInt(priceDecreaseInput.value) || 0,
+    };
+
+    try {
+      const res  = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showFeedback('保存失敗: ' + (data.error || res.statusText), false);
+      } else {
+        showFeedback('✓ 保存しました', true);
+      }
+    } catch (err) {
+      showFeedback('保存失敗: ' + err.message, false);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  function showFeedback(msg, ok) {
+    feedback.textContent = msg;
+    feedback.className   = 'feedback show ' + (ok ? 'ok' : 'err');
+    if (ok) {
+      setTimeout(() => { feedback.className = 'feedback'; }, 3000);
+    }
+  }
+
+  loadConfig();
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
@@ -41,7 +42,7 @@ func launchChrome() *exec.Cmd {
 		"--user-data-dir=/tmp/chrome-debug",
 		"--no-first-run", "--no-default-browser-check",
 	}
-	if !config.ViewFlg {
+	if config.Cfg.Headless {
 		args = append(args, "--headless=new")
 	}
 	cmd := exec.Command("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args...)
@@ -76,7 +77,10 @@ func waitForPort(address string, timeout time.Duration) error {
 	}
 }
 
-// GetNewTabID はChrome DevTools から操作対象タブのIDを取得します。
+// GetNewTabID はChrome DevTools から操作対象タブのIDを返します。
+// chrome://newtab/ または jp.mercari.com のタブが優先されます。
+// 見つからない場合（前の処理が別URLで止まっている場合など）は
+// 新規タブを作成して返します。
 func GetNewTabID() string {
 	resp, err := http.Get("http://localhost:9222/json")
 	if err != nil {
@@ -102,7 +106,49 @@ func GetNewTabID() string {
 			return tab.ID
 		}
 	}
-	return ""
+
+	// 既存タブが見つからない場合は新規タブを作成して使用する。
+	// 前回の処理が別URL（編集ページ等）で止まっていても影響を受けない。
+	appLogger.Info("起動", "タブ作成", "既存タブが見つからないため新規タブを作成します")
+	return openNewTab()
+}
+
+// openNewTab は Chrome DevTools API で新規タブを開き、そのIDを返します。
+// Chrome 112以降は GET /json/new が非推奨のため PUT を使用します。
+func openNewTab() string {
+	req, err := http.NewRequest(http.MethodPut, "http://localhost:9222/json/new", nil)
+	if err != nil {
+		appLogger.Error("起動", "新規タブ作成", "リクエスト生成失敗: "+err.Error())
+		return ""
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		appLogger.Error("起動", "新規タブ作成", "失敗: "+err.Error())
+		return ""
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		appLogger.Error("起動", "新規タブ作成", "レスポンス読み込み失敗: "+err.Error())
+		return ""
+	}
+
+	var tab TabInfo
+	if err := json.Unmarshal(body, &tab); err != nil {
+		appLogger.Error("起動", "新規タブ作成", "JSONパース失敗: "+err.Error()+" body="+string(body))
+		return ""
+	}
+
+	if tab.ID == "" {
+		appLogger.Error("起動", "新規タブ作成", "タブIDが空 body="+string(body))
+		return ""
+	}
+
+	// タブが準備完了するまで少し待機
+	time.Sleep(500 * time.Millisecond)
+	appLogger.Info("起動", "新規タブ作成", "完了 → "+tab.ID)
+	return tab.ID
 }
 
 func getContext(id string) (context.Context, context.CancelFunc, context.CancelFunc) {
@@ -227,6 +273,85 @@ func statusLabel(code int) string {
 	default:
 		return fmt.Sprintf("%d", code)
 	}
+}
+
+// newNetworkIdleWaiter はCDPネットワークイベントを監視するリスナーを登録し、
+// 「全リクエストが完了してから idleFor 間何も来なければ nil を返す」wait 関数と
+// リスナーを解放する stopListen 関数のペアを返します。
+//
+// 使い方:
+//  1. クリック等の操作より前に呼び出してリスナーを起動する
+//  2. 操作後に wait() を呼んで通信完了を待つ
+//  3. 最後に stopListen() を呼ぶ（defer 推奨）
+func newNetworkIdleWaiter(ctx context.Context, idleFor, timeout time.Duration) (wait func() error, stopListen func()) {
+	var mu sync.Mutex
+	pending := 0
+
+	listenCtx, cancel := context.WithCancel(ctx)
+	chromedp.ListenTarget(listenCtx, func(ev interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch ev.(type) {
+		case *network.EventRequestWillBeSent:
+			pending++
+		case *network.EventLoadingFinished, *network.EventLoadingFailed:
+			if pending > 0 {
+				pending--
+			}
+		}
+	})
+
+	wait = func() error {
+		deadline := time.Now().Add(timeout)
+		var idleStart time.Time
+		for {
+			if time.Now().After(deadline) {
+				return fmt.Errorf("通信完了タイムアウト (%v)", timeout)
+			}
+			mu.Lock()
+			p := pending
+			mu.Unlock()
+			if p == 0 {
+				if idleStart.IsZero() {
+					idleStart = time.Now()
+				} else if time.Since(idleStart) >= idleFor {
+					return nil
+				}
+			} else {
+				idleStart = time.Time{}
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	stopListen = cancel
+	return
+}
+
+// ─── 並列処理用タブ管理 ──────────────────────────────────────────────────────
+
+// tabContext は並列処理用の追加タブとそのCDPコンテキストを管理します。
+// プライマリタブ（run() で取得したもの）には使用しないでください。
+type tabContext struct {
+	ctx     context.Context
+	cancel1 context.CancelFunc // allocator cancel
+	cancel2 context.CancelFunc // context cancel
+}
+
+// newTabContext は新規タブを作成して tabContext を返します。
+// 必ず Close() で解放してください。
+func newTabContext() (*tabContext, error) {
+	id := openNewTab()
+	if id == "" {
+		return nil, fmt.Errorf("新規タブ作成失敗")
+	}
+	ctx, c1, c2 := getContext(id)
+	return &tabContext{ctx: ctx, cancel1: c1, cancel2: c2}, nil
+}
+
+// Close はCDPコンテキストを解放します。
+func (t *tabContext) Close() {
+	t.cancel2()
+	t.cancel1()
 }
 
 func clickLoadMoreIfExists(ctx context.Context, maxClicks int, wait time.Duration) error {

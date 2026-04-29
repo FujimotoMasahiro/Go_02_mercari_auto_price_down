@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"mercari-pricelower/internal/config"
 	"mercari-pricelower/internal/history"
 )
 
@@ -253,22 +254,31 @@ func handleResearchData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type researchItem struct {
-		ID    string `json:"id"`
-		Name  string `json:"name"`
-		Price int    `json:"price"`
-		Page  int    `json:"page"`
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Price     int    `json:"price"`
+		SoldIn    string `json:"soldIn,omitempty"`
+		ImagePath string `json:"imagePath,omitempty"`
 	}
+	researchImgDir := filepath.Join(projectRoot(), "research_img")
 	var items []researchItem
 	for i, row := range records {
 		if i == 0 {
 			continue
 		}
-		if len(row) < 4 {
+		if len(row) < 3 {
 			continue
 		}
 		price, _ := strconv.Atoi(row[2])
-		page, _ := strconv.Atoi(row[3])
-		items = append(items, researchItem{ID: row[0], Name: row[1], Price: price, Page: page})
+		soldIn := ""
+		if len(row) >= 4 {
+			soldIn = row[3]
+		}
+		item := researchItem{ID: row[0], Name: row[1], Price: price, SoldIn: soldIn}
+		if matches, _ := filepath.Glob(filepath.Join(researchImgDir, row[0]+".*")); len(matches) > 0 {
+			item.ImagePath = "/research_img/" + filepath.Base(matches[0])
+		}
+		items = append(items, item)
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -405,6 +415,47 @@ func handleLogFile(w http.ResponseWriter, r *http.Request) {
 		"filename": filepath.Base(abs),
 		"content":  string(content),
 	})
+}
+
+// ── 設定画面 ────────────────────────────────────────────────────────────────
+
+func handleSettings(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(settingsHTML)
+}
+
+// handleConfig は GET で現在設定を返し、POST で config.json を更新します。
+func handleConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(config.Cfg)
+
+	case http.MethodPost:
+		var newCfg config.AppConfig
+		if err := json.NewDecoder(r.Body).Decode(&newCfg); err != nil {
+			http.Error(w, `{"error":"JSONパース失敗: `+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		// バリデーション
+		if newCfg.MinPrice < 0 {
+			newCfg.MinPrice = 0
+		}
+		if newCfg.PriceDecreaseAmount < 0 {
+			newCfg.PriceDecreaseAmount = 0
+		}
+		if err := config.Save(newCfg); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "保存失敗: " + err.Error()})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func handleEvents(w http.ResponseWriter, r *http.Request) {

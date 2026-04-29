@@ -41,16 +41,6 @@
       display: flex; align-items: center; gap: 14px;
       margin-bottom: 36px;
     }
-    .back-btn {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--muted);
-      font-size: 13px; font-weight: 600; text-decoration: none;
-      transition: color .15s, border-color .15s;
-      flex-shrink: 0;
-    }
-    .back-btn:hover { color: var(--text); border-color: var(--muted); }
     .logo {
       width: 44px; height: 44px;
       background: linear-gradient(135deg, #059669, #047857);
@@ -240,31 +230,119 @@
       margin-top: 16px; font-size: 12px;
       color: var(--muted); text-align: center;
     }
+
+    /* ── Progress widget ────────────────────────────── */
+    .progress-widget {
+      padding: 16px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .progress-bar-track {
+      width: 100%; height: 7px;
+      background: var(--surface2); border-radius: 999px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--blue), #8b5cf6);
+      width: 0%;
+      transition: width .65s cubic-bezier(.4,0,.2,1);
+    }
+    .progress-bar-fill.is-done  { background: linear-gradient(90deg, #059669, var(--green)); }
+    .progress-bar-fill.is-error { background: var(--red); width: 100% !important; }
+    .progress-info-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 8px;
+    }
+    .progress-step-lbl {
+      font-size: 12px; color: var(--muted); flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .progress-pct-lbl {
+      font-size: 12px; font-weight: 700;
+      font-family: "SF Mono","Menlo",monospace;
+      color: var(--blue); flex-shrink: 0;
+      transition: color .3s;
+    }
+    .progress-pct-lbl.is-done  { color: var(--green); }
+    .progress-pct-lbl.is-error { color: var(--red); }
+    .progress-count-row {
+      margin-top: 5px;
+      font-size: 11px; font-weight: 700;
+      font-family: "SF Mono","Menlo",monospace;
+      color: var(--yellow); letter-spacing: .02em;
+    }
+
+    /* ── Nav Drawer ──────────────────────────────────── */
+    .ham-btn {
+      position: fixed; top: 16px; right: 16px; z-index: 1000;
+      width: 42px; height: 42px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 5px;
+      transition: border-color .15s, background .15s;
+    }
+    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
+    .ham-line {
+      width: 18px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: transform .25s ease, opacity .2s ease;
+    }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav-backdrop {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
+    .nav-drawer {
+      position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950;
+      width: 260px; background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; padding-top: 16px;
+      transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto;
+    }
+    .nav-drawer.is-open { right: 0; }
+    .nav-drawer-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 18px 18px; border-bottom: 1px solid var(--border);
+    }
+    .nav-drawer-logo {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 17px; flex-shrink: 0;
+    }
+    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
+    .nav-links { padding: 10px 0; flex: 1; }
+    .nav-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 11px 18px; text-decoration: none; color: var(--muted);
+      font-size: 14px; font-weight: 500;
+      border-left: 3px solid transparent;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.is-active {
+      color: var(--text); background: rgba(255,107,53,.08);
+      border-left-color: var(--accent); font-weight: 600;
+    }
+    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
+    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
   </style>
 </head>
 <body>
 
 <!-- Header -->
 <header>
-  <a class="back-btn" href="/">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>
-    TOP
-  </a>
   <div class="logo">📋</div>
   <div>
     <h1>商品一覧</h1>
     <p>CSV作成・値引き実行・対象外設定</p>
   </div>
-  <a class="back-btn" href="/history" style="margin-left:auto">
-    📈 値下げ履歴
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>
-  </a>
 </header>
 
 <!-- 操作カード -->
@@ -295,6 +373,18 @@
     </div>
   </div>
   <div class="progress-wrap" id="progressWrap">
+    <!-- プログレスバー -->
+    <div class="progress-widget" id="progressWidget">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-info-row">
+        <span class="progress-step-lbl" id="progressStep">準備中…</span>
+        <span class="progress-pct-lbl"  id="progressPct">0%</span>
+      </div>
+      <div class="progress-count-row" id="progressCount" style="display:none"></div>
+    </div>
+    <!-- ログコンソール -->
     <div id="progressConsole"></div>
   </div>
 </div>
@@ -341,10 +431,125 @@
   const progressWrap = document.getElementById('progressWrap');
   const progressEl   = document.getElementById('progressConsole');
 
-  let isRunning   = false;
-  let es          = null;
+  let isRunning    = false;
+  let es           = null;
   let currentItems = [];
   const excludedIds = new Set();   // 対象外チェック済みの商品ID
+
+  // ── 進捗管理 ─────────────────────────────────────
+  let currentMode        = 'csv';    // 'csv' | 'discount'
+  let totalDiscountItems = 0;
+
+  function resetProgress() {
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressFill').className   = 'progress-bar-fill';
+    document.getElementById('progressStep').textContent = '準備中…';
+    const pctEl = document.getElementById('progressPct');
+    pctEl.textContent = '0%';
+    pctEl.className   = 'progress-pct-lbl';
+    document.getElementById('progressCount').style.display = 'none';
+    totalDiscountItems = 0;
+  }
+
+  function setProgressBar(pct, stepText, countText) {
+    const fill  = document.getElementById('progressFill');
+    const step  = document.getElementById('progressStep');
+    const pctEl = document.getElementById('progressPct');
+    const count = document.getElementById('progressCount');
+    const p = Math.max(0, Math.min(100, pct));
+    fill.style.width  = p + '%';
+    step.textContent  = stepText;
+    pctEl.textContent = p + '%';
+    if (pct >= 100) {
+      fill.classList.add('is-done');
+      pctEl.classList.add('is-done');
+    } else if (pct < 0) {
+      fill.classList.add('is-error');
+      pctEl.classList.add('is-error');
+      pctEl.textContent = '—';
+    }
+    if (typeof countText === 'string') {
+      count.style.display = 'block';
+      count.textContent   = countText;
+    } else if (countText === null) {
+      count.style.display = 'none';
+    }
+  }
+
+  // ログ1行から進捗情報を解析して返す
+  function parseProgress(line) {
+    const csv = currentMode === 'csv';
+
+    // ── Chrome 起動フェーズ ──────────────────────────
+    if (/Chrome起動 → 開始|Chrome接続確認/.test(line))
+      return { pct: csv ? 8 : 6,  step: 'Chrome 起動中…' };
+    if (line.includes('Chromeプロセス開始'))
+      return { pct: csv ? 13 : 9, step: 'Chrome プロセス起動完了' };
+    if (line.includes('Chrome DevTools接続準備') && line.includes('完了'))
+      return { pct: csv ? 18 : 13, step: 'DevTools 接続完了' };
+    if (line.includes('タブID取得') && !line.includes('見つかりません'))
+      return { pct: csv ? 22 : 16, step: 'ブラウザタブ 接続完了' };
+
+    // ── ナビゲーション ───────────────────────────────
+    if (line.includes('メルカリTOP') && line.includes('200 OK'))
+      return { pct: csv ? 32 : 22, step: 'メルカリ TOP 読み込み完了' };
+    if (line.includes('商品ID抽出')) {
+      const m = line.match(/→ (\d+)件/);
+      const n = m ? m[1] : '';
+      if (!csv && n) totalDiscountItems = parseInt(n);
+      return { pct: csv ? 48 : 30, step: `出品商品 ${n ? n+'件 ' : ''}取得完了` };
+    }
+    if (line.includes('ログイン済み'))
+      return { pct: csv ? 55 : 35, step: 'ログイン確認完了' };
+
+    if (csv) {
+      // ── CSV モード ────────────────────────────────
+      if (line.includes('スナップショット記録') && line.includes('CSV作成モード'))
+        return { pct: 62, step: '商品情報 取得中…' };
+      if (line.includes('出品一覧(価格CSV)') && line.includes('商品数取得')) {
+        const m = line.match(/→ (\d+)件/);
+        return { pct: 74, step: `商品データ ${m ? m[1]+'件 ' : ''}収集中` };
+      }
+      if (line.includes('画像ロード待機') && line.includes('完了'))
+        return { pct: 86, step: '画像 読み込み完了' };
+      if (line.includes('CSV保存完了'))
+        return { pct: 94, step: 'CSV ファイル保存完了' };
+
+    } else {
+      // ── 値引きモード ──────────────────────────────
+      if (line.includes('スナップショット記録') && line.includes('値引き前'))
+        return { pct: 38, step: '値引き前 スナップショット記録中' };
+      if (line.includes('一括値引き') && line.includes('開始')) {
+        const m = line.match(/開始 \((\d+)件/);
+        if (m) totalDiscountItems = parseInt(m[1]);
+        return { pct: 42, step: `値引き処理 開始 (${totalDiscountItems}件)` };
+      }
+      const itemM = line.match(/\((\d+)\/(\d+)\) 画面遷移/);
+      if (itemM) {
+        const cur   = parseInt(itemM[1]);
+        const total = parseInt(itemM[2]);
+        if (total > 0) totalDiscountItems = total;
+        const pct = 42 + Math.round((cur - 1) / (totalDiscountItems || 1) * 38);
+        return {
+          pct,
+          step:  `値引き処理中  ${cur} / ${totalDiscountItems} 件`,
+          count: `▶ ${cur} / ${totalDiscountItems} 件処理中`
+        };
+      }
+      if (line.includes('スナップショット記録') && line.includes('値引き後'))
+        return { pct: 83, step: '値引き後 スナップショット記録中', count: null };
+      if (line.includes('CSV保存完了'))
+        return { pct: 93, step: 'CSV ファイル保存完了', count: null };
+    }
+
+    // ── 完了 / エラー ─────────────────────────────
+    if (line.includes('全処理完了') || line.includes('[終了] 正常終了'))
+      return { pct: 100, step: 'すべての処理が完了しました', count: null };
+    if (/\[終了\] エラー/.test(line))
+      return { pct: -1, step: 'エラーが発生しました', count: null };
+
+    return null;
+  }
 
   // ── CSV データ読み込み ──────────────────────────
   async function loadProducts() {
@@ -439,6 +644,8 @@
   // ── CSV 更新 ──────────────────────────────────
   async function updateCSV() {
     if (isRunning) return;
+    currentMode = 'csv';
+    resetProgress();
 
     setRunning(true, 'CSV更新中…');
     progressWrap.classList.add('visible');
@@ -469,6 +676,9 @@
   // ── 値引き実行 ─────────────────────────────────
   async function runDiscount() {
     if (isRunning) return;
+    currentMode = 'discount';
+    totalDiscountItems = 0;
+    resetProgress();
 
     const excluded = Array.from(excludedIds);
 
@@ -514,6 +724,7 @@
       if (e.data === '__DONE__') {
         es.close();
         es = null;
+        setProgressBar(100, 'すべての処理が完了しました', null);
         setRunning(false);
         if (onDone) onDone();
         return;
@@ -543,6 +754,11 @@
 
   // ── プログレスコンソール ──────────────────────────
   function appendProgress(text) {
+    // プログレスバー更新
+    const prog = parseProgress(text);
+    if (prog) setProgressBar(prog.pct, prog.step, prog.count);
+
+    // ログ表示
     const d = document.createElement('div');
     d.className = lineClass(text);
     d.textContent = text;
@@ -566,6 +782,52 @@
 
   // ── 初期化 ───────────────────────────────────────
   loadProducts();
+</script>
+
+<!-- ─── Navigation Drawer ──────────────────────────────── -->
+<button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+</button>
+<div class="nav-backdrop" id="navBackdrop" onclick="navClose()"></div>
+<nav class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <div class="nav-drawer-head">
+    <div class="nav-drawer-logo">🏷️</div>
+    <div>
+      <div class="nav-drawer-title">メルカリ 値引きツール</div>
+      <div class="nav-drawer-sub">管理メニュー</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
+    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
+  </div>
+</nav>
+<script>
+  (function() {
+    const p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
+      if (el.dataset.navpath === p) el.classList.add('is-active');
+    });
+  })();
+  function navToggle() {
+    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+    document.getElementById('hamBtn').classList.toggle('is-open', open);
+    document.getElementById('navBackdrop').classList.toggle('is-open', open);
+    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
+  }
+  function navClose() {
+    document.getElementById('navDrawer').classList.remove('is-open');
+    document.getElementById('hamBtn').classList.remove('is-open');
+    document.getElementById('navBackdrop').classList.remove('is-open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
 </script>
 </body>
 </html>

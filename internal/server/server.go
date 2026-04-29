@@ -25,6 +25,9 @@ var historyHTML []byte
 //go:embed templates/research.html
 var researchHTML []byte
 
+//go:embed templates/settings.html
+var settingsHTML []byte
+
 var (
 	mu        sync.Mutex
 	isRunning bool
@@ -65,6 +68,13 @@ func Run() {
 	imgDir := filepath.Join(projectRoot(), "img")
 	os.MkdirAll(imgDir, 0755)
 	mux.Handle("/img/", http.StripPrefix("/img/", http.FileServer(http.Dir(imgDir))))
+
+	researchImgDir := filepath.Join(projectRoot(), "research_img")
+	os.MkdirAll(researchImgDir, 0755)
+	mux.Handle("/research_img/", http.StripPrefix("/research_img/", http.FileServer(http.Dir(researchImgDir))))
+
+	mux.HandleFunc("/settings", handleSettings)
+	mux.HandleFunc("/api/config", handleConfig)
 
 	mux.HandleFunc("/run", handleRun)
 	mux.HandleFunc("/create-csv", handleCreateCSV)

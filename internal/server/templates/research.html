@@ -50,18 +50,6 @@
     }
     header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
     header p  { font-size: 13px; color: var(--muted); margin-top: 3px; }
-    .back-link {
-      margin-left: auto;
-      font-size: 13px; color: var(--muted);
-      text-decoration: none;
-      display: flex; align-items: center; gap: 4px;
-      padding: 6px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      transition: color .15s, border-color .15s;
-    }
-    .back-link:hover { color: var(--text); border-color: var(--muted); }
-
     /* ── Controls ─────────────────────────── */
     .controls-card {
       background: var(--surface);
@@ -234,13 +222,21 @@
       padding: 10px 14px;
       vertical-align: middle;
     }
-    .td-id {
-      font-family: "SF Mono","Menlo",monospace;
-      font-size: 11px; color: var(--muted);
-      white-space: nowrap;
+    .td-rank { text-align: center; width: 40px; color: var(--muted); font-size: 12px; }
+    .td-thumb { width: 64px; padding: 6px 10px; }
+    .thumb {
+      width: 52px; height: 52px;
+      object-fit: cover; border-radius: 7px; display: block;
+      background: var(--surface2);
+    }
+    .no-thumb {
+      width: 52px; height: 52px;
+      background: var(--surface2); border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: var(--muted);
     }
     .td-name {
-      max-width: 420px;
+      max-width: 400px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .td-price {
@@ -292,6 +288,120 @@
     .page-info { font-size: 12px; color: var(--muted); }
 
     footer { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+
+    /* ── Progress widget ────────────────────────────── */
+    .progress-widget {
+      margin-bottom: 12px; padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+    }
+    .progress-bar-track {
+      width: 100%; height: 7px;
+      background: var(--surface2); border-radius: 999px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #0ea5e9, #2563eb);
+      width: 0%;
+      transition: width .65s cubic-bezier(.4,0,.2,1);
+    }
+    .progress-bar-fill.is-done  { background: linear-gradient(90deg, #059669, #22c55e); }
+    .progress-bar-fill.is-error { background: #ef4444; width: 100% !important; }
+    .progress-info-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 8px;
+    }
+    .progress-step-lbl {
+      font-size: 12px; color: var(--muted); flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .progress-pct-lbl {
+      font-size: 12px; font-weight: 700;
+      font-family: "SF Mono","Menlo",monospace;
+      color: #38bdf8; flex-shrink: 0; transition: color .3s;
+    }
+    .progress-pct-lbl.is-done  { color: #22c55e; }
+    .progress-pct-lbl.is-error { color: #ef4444; }
+    .progress-count-row {
+      margin-top: 5px;
+      font-size: 11px; font-weight: 700;
+      font-family: "SF Mono","Menlo",monospace;
+      color: var(--yellow); letter-spacing: .02em;
+    }
+
+    /* ── Nav Drawer ──────────────────────────────────── */
+    .ham-btn {
+      position: fixed; top: 16px; right: 16px; z-index: 1000;
+      width: 42px; height: 42px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 5px;
+      transition: border-color .15s, background .15s;
+    }
+    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
+    .ham-line {
+      width: 18px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: transform .25s ease, opacity .2s ease;
+    }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav-backdrop {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+    }
+    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
+    .nav-drawer {
+      position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950;
+      width: 260px; background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; padding-top: 16px;
+      transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto;
+    }
+    .nav-drawer.is-open { right: 0; }
+    .nav-drawer-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 18px 18px; border-bottom: 1px solid var(--border);
+    }
+    .nav-drawer-logo {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), #ff3c7a);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 17px; flex-shrink: 0;
+    }
+    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
+    .nav-links { padding: 10px 0; flex: 1; }
+    .nav-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 11px 18px; text-decoration: none; color: var(--muted);
+      font-size: 14px; font-weight: 500;
+      border-left: 3px solid transparent;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.is-active {
+      color: var(--text); background: rgba(255,107,53,.08);
+      border-left-color: var(--accent); font-weight: 600;
+    }
+    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
+    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
+
+    /* ── Sold-in badge ───────────────────────────── */
+    .sold-in {
+      display: inline-block;
+      padding: 3px 9px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+    .sold-in-min  { background: rgba(34,197,94,.15);  color: #22c55e; border: 1px solid rgba(34,197,94,.35); }
+    .sold-in-hour { background: rgba(245,158,11,.15); color: #f59e0b; border: 1px solid rgba(245,158,11,.35); }
+    .sold-in-day-fast { background: rgba(251,146,60,.15); color: #fb923c; border: 1px solid rgba(251,146,60,.35); }
+    .sold-in-day  { background: rgba(100,116,139,.1); color: var(--muted); border: 1px solid rgba(100,116,139,.2); }
+    .sold-in-none { color: var(--muted); font-size: 13px; }
+    .td-soldin { white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -303,13 +413,6 @@
     <h1>売れ筋リサーチ</h1>
     <p>カテゴリー別の売り切れ商品を調査して売上・利益を最大化</p>
   </div>
-  <a class="back-link" href="/">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>
-    メニューへ
-  </a>
 </header>
 
 <!-- Controls -->
@@ -354,6 +457,17 @@
     <span class="console-label">実行ログ</span>
     <button class="ghost-btn" onclick="document.getElementById('console').textContent=''">クリア</button>
   </div>
+  <!-- プログレスバー (実行中のみ表示) -->
+  <div class="progress-widget" id="progressWidget" style="display:none">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-info-row">
+      <span class="progress-step-lbl" id="progressStep">準備中…</span>
+      <span class="progress-pct-lbl"  id="progressPct">0%</span>
+    </div>
+    <div class="progress-count-row" id="progressCount" style="display:none"></div>
+  </div>
   <div id="console"></div>
 </div>
 
@@ -368,10 +482,10 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>商品ID</th>
+          <th>画像</th>
           <th>商品名</th>
           <th>価格</th>
-          <th>ページ</th>
+          <th>売れた時間</th>
           <th>リンク</th>
         </tr>
       </thead>
@@ -385,7 +499,6 @@
       </tbody>
     </table>
   </div>
-  <div class="pagination" id="pagination" style="display:none"></div>
 </div>
 
 <footer>Mercari Auto Price Down Tool — 売れ筋リサーチ</footer>
@@ -399,9 +512,119 @@
   const resultsMeta = document.getElementById('resultsMeta');
 
   let allItems = [];
-  let currentPage = 1;
-  const PAGE_SIZE = 50;
   let eventSource = null;
+
+  // ── 進捗管理 ─────────────────────────────────────────────
+  let totalPages = 0;
+  let totalDetail = 0;
+
+  function resetProgress() {
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressFill').className   = 'progress-bar-fill';
+    document.getElementById('progressStep').textContent = '準備中…';
+    const pctEl = document.getElementById('progressPct');
+    pctEl.textContent = '0%';
+    pctEl.className   = 'progress-pct-lbl';
+    document.getElementById('progressCount').style.display = 'none';
+    document.getElementById('progressWidget').style.display = 'block';
+    totalPages = 0;
+  }
+
+  function setProgressBar(pct, stepText, countText) {
+    const fill  = document.getElementById('progressFill');
+    const step  = document.getElementById('progressStep');
+    const pctEl = document.getElementById('progressPct');
+    const count = document.getElementById('progressCount');
+    const p = Math.max(0, Math.min(100, pct));
+    fill.style.width  = p + '%';
+    step.textContent  = stepText;
+    pctEl.textContent = p + '%';
+    if (pct >= 100) {
+      fill.classList.add('is-done');
+      pctEl.classList.add('is-done');
+    } else if (pct < 0) {
+      fill.classList.add('is-error');
+      pctEl.classList.add('is-error');
+      pctEl.textContent = '—';
+    }
+    if (typeof countText === 'string') {
+      count.style.display = 'block';
+      count.textContent   = countText;
+    } else if (countText === null) {
+      count.style.display = 'none';
+    }
+  }
+
+  // ログ1行からリサーチの進捗情報を解析
+  function parseProgress(line) {
+    if (/Chrome起動 → 開始|Chrome接続確認/.test(line))
+      return { pct: 5,  step: 'Chrome 起動中…' };
+    if (line.includes('Chromeプロセス開始'))
+      return { pct: 8,  step: 'Chrome プロセス起動完了' };
+    if (line.includes('Chrome DevTools接続準備') && line.includes('完了'))
+      return { pct: 12, step: 'DevTools 接続完了' };
+    if (line.includes('タブID取得') && !line.includes('見つかりません'))
+      return { pct: 15, step: 'ブラウザタブ 接続完了' };
+    if (line.includes('メルカリTOP') && line.includes('200 OK'))
+      return { pct: 22, step: 'メルカリ TOP 読み込み完了' };
+
+    // ページ N/M スクレイピング開始（22〜55%）
+    const startM = line.match(/ページ (\d+)\/(\d+)/);
+    if (startM) {
+      const cur   = parseInt(startM[1]);
+      const total = parseInt(startM[2]);
+      if (total > 0) totalPages = total;
+      const pct = 22 + Math.round((cur - 1) / (totalPages || 1) * 33);
+      return {
+        pct,
+        step:  `ページ ${cur} / ${totalPages} スクレイピング中`,
+        count: `▶ ${cur} / ${totalPages} ページ処理中`
+      };
+    }
+
+    // ページ N 取得完了
+    const doneM = line.match(/ページ (\d+) 取得完了 → (\d+)件/);
+    if (doneM) {
+      const cur   = parseInt(doneM[1]);
+      const total = totalPages || cur;
+      const pct   = 22 + Math.round(cur / total * 33);
+      return {
+        pct,
+        step:  `ページ ${cur} 完了 (${doneM[2]}件取得)`,
+        count: `▶ ${cur} / ${total} ページ完了`
+      };
+    }
+
+    // 詳細取得フェーズ（55〜88%）
+    if (line.includes('詳細取得') && line.includes('開始')) {
+      const m = line.match(/(\d+)件/);
+      if (m) totalDetail = parseInt(m[1]);
+      return { pct: 55, step: `商品詳細確認 開始 (${totalDetail || '?'}件)`, count: `▶ 0 / ${totalDetail || '?'} 件確認中` };
+    }
+    const detailM = line.match(/詳細取得.*?\((\d+)\/(\d+)\)/);
+    if (detailM) {
+      const cur   = parseInt(detailM[1]);
+      const total = parseInt(detailM[2]);
+      if (total > 0) totalDetail = total;
+      const pct = 55 + Math.round(cur / (totalDetail || 1) * 33);
+      return {
+        pct,
+        step:  `商品詳細確認中 (${cur} / ${totalDetail})`,
+        count: `▶ ${cur} / ${totalDetail} 件確認中`
+      };
+    }
+    if (line.includes('詳細取得') && line.includes('完了'))
+      return { pct: 88, step: '商品詳細確認 完了', count: null };
+
+    if (line.includes('CSV保存完了'))
+      return { pct: 93, step: 'CSV ファイル保存完了', count: null };
+    if (line.includes('リサーチ完了') || line.includes('全処理完了') || line.includes('[終了] 正常終了'))
+      return { pct: 100, step: 'リサーチ完了', count: null };
+    if (/\[終了\] エラー/.test(line))
+      return { pct: -1, step: 'エラーが発生しました', count: null };
+
+    return null;
+  }
 
   // ── State ────────────────────────────────────────────────
   function setRunning(running) {
@@ -416,10 +639,17 @@
     statusText.textContent = ok ? '完了' : 'エラー';
     runBtn.disabled = false;
     stopBtn.style.display = 'none';
+    setProgressBar(ok ? 100 : -1,
+      ok ? 'リサーチ完了' : 'エラーが発生しました', null);
   }
 
   // ── Console ──────────────────────────────────────────────
   function log(msg) {
+    // プログレスバー更新
+    const prog = parseProgress(msg);
+    if (prog) setProgressBar(prog.pct, prog.step, prog.count);
+
+    // ログ表示
     const line = document.createElement('div');
     line.textContent = msg;
     if (msg.startsWith('[終了]')) line.style.color = '#22c55e';
@@ -435,6 +665,7 @@
     const pages        = parseInt(document.getElementById('pagesInput').value) || 5;
 
     consoleEl.textContent = '';
+    resetProgress();
     setRunning(true);
 
     if (eventSource) { eventSource.close(); eventSource = null; }
@@ -485,21 +716,24 @@
         return;
       }
       resultsMeta.textContent = `${fname}  /  ${allItems.length}件`;
-      currentPage = 1;
-      renderTablePage();
+      renderTable(allItems);
     } catch (err) {
       resultsMeta.textContent = 'エラー: ' + err.message;
     }
   }
 
-  function renderTablePage() {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const slice = allItems.slice(start, start + PAGE_SIZE);
-    renderTable(slice, start);
-    renderPagination();
+  // 売れた時間バッジを返します。
+  // 分 → 緑、時間 → 黄、3日以内 → オレンジ、それ以上 → グレー
+  function soldInBadge(soldIn) {
+    if (!soldIn) return '<span class="sold-in-none">—</span>';
+    const cls = soldIn.includes('分')   ? 'sold-in-min'  :
+                soldIn.includes('時間') ? 'sold-in-hour' :
+                (soldIn.includes('日') && parseInt(soldIn) <= 3) ? 'sold-in-day-fast' :
+                'sold-in-day';
+    return `<span class="sold-in ${cls}">${escHtml(soldIn)}</span>`;
   }
 
-  function renderTable(items, offset = 0) {
+  function renderTable(items) {
     const tbody = document.getElementById('resultsTbody');
     if (!items.length) {
       tbody.innerHTML = `<tr><td colspan="6">
@@ -511,48 +745,20 @@
       return;
     }
     tbody.innerHTML = items.map((item, i) => {
-      const rank  = offset + i + 1;
       const price = item.price > 0 ? `¥${item.price.toLocaleString()}` : '—';
       const url   = `https://jp.mercari.com/item/${escHtml(item.id)}`;
+      const thumb = item.imagePath
+        ? `<img class="thumb" src="${escHtml(item.imagePath)}" alt="${escHtml(item.name)}" loading="lazy">`
+        : `<div class="no-thumb">🛍️</div>`;
       return `<tr>
-        <td class="td-page">${rank}</td>
-        <td class="td-id">${escHtml(item.id)}</td>
+        <td class="td-rank">${i + 1}</td>
+        <td class="td-thumb">${thumb}</td>
         <td class="td-name" title="${escHtml(item.name)}">${escHtml(item.name)}</td>
         <td class="td-price">${price}</td>
-        <td class="td-page">${item.page}</td>
+        <td class="td-soldin">${soldInBadge(item.soldIn)}</td>
         <td><a class="item-link" href="${url}" target="_blank" rel="noopener">開く ↗</a></td>
       </tr>`;
     }).join('');
-  }
-
-  function renderPagination() {
-    const pag = document.getElementById('pagination');
-    const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
-    if (totalPages <= 1) { pag.style.display = 'none'; return; }
-    pag.style.display = 'flex';
-    pag.innerHTML = '';
-
-    const addBtn = (label, page, active = false, disabled = false) => {
-      const b = document.createElement('button');
-      b.className = 'page-btn' + (active ? ' active' : '');
-      b.textContent = label;
-      b.disabled = disabled;
-      b.onclick = () => { currentPage = page; renderTablePage(); };
-      pag.appendChild(b);
-    };
-
-    addBtn('‹', currentPage - 1, false, currentPage === 1);
-    for (let p = 1; p <= totalPages; p++) {
-      addBtn(p, p, p === currentPage);
-    }
-    addBtn('›', currentPage + 1, false, currentPage === totalPages);
-
-    const info = document.createElement('span');
-    info.className = 'page-info';
-    const start = (currentPage - 1) * PAGE_SIZE + 1;
-    const end   = Math.min(currentPage * PAGE_SIZE, allItems.length);
-    info.textContent = `${start}–${end} / ${allItems.length}件`;
-    pag.appendChild(info);
   }
 
   function escHtml(s) {
@@ -563,6 +769,52 @@
 
   // ── Init ──────────────────────────────────────────────────
   loadResults();
+</script>
+
+<!-- ─── Navigation Drawer ──────────────────────────────── -->
+<button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+  <span class="ham-line"></span>
+</button>
+<div class="nav-backdrop" id="navBackdrop" onclick="navClose()"></div>
+<nav class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <div class="nav-drawer-head">
+    <div class="nav-drawer-logo">🏷️</div>
+    <div>
+      <div class="nav-drawer-title">メルカリ 値引きツール</div>
+      <div class="nav-drawer-sub">管理メニュー</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
+    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
+  </div>
+</nav>
+<script>
+  (function() {
+    const p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
+      if (el.dataset.navpath === p) el.classList.add('is-active');
+    });
+  })();
+  function navToggle() {
+    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+    document.getElementById('hamBtn').classList.toggle('is-open', open);
+    document.getElementById('navBackdrop').classList.toggle('is-open', open);
+    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
+  }
+  function navClose() {
+    document.getElementById('navDrawer').classList.remove('is-open');
+    document.getElementById('hamBtn').classList.remove('is-open');
+    document.getElementById('navBackdrop').classList.remove('is-open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
 </script>
 </body>
 </html>
