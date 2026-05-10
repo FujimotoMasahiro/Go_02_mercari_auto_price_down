@@ -103,6 +103,7 @@ func Run() {
 	mux.HandleFunc("/pl", handlePL)
 	mux.HandleFunc("/pl-data", handlePLData)
 	mux.HandleFunc("/api/costs", handleCosts)
+	mux.HandleFunc("/api/estimate-shipping", handleEstimateShipping)
 	mux.HandleFunc("/settings", handleSettings)
 	mux.HandleFunc("/api/config", handleConfig)
 

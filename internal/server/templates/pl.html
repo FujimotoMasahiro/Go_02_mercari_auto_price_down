@@ -72,6 +72,13 @@
     .cost-input:focus { outline: none; border-color: var(--blue); }
     .save-btn { font-size: 11px; background: var(--blue); color: #fff; border: none; border-radius: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
     .save-btn:hover { opacity: .85; }
+    .est-btn { font-size: 10px; background: rgba(96,165,250,.12); color: var(--blue); border: 1px solid rgba(96,165,250,.35); border-radius: 4px; padding: 2px 7px; cursor: pointer; white-space: nowrap; transition: background .15s; }
+    .est-btn:hover { background: rgba(96,165,250,.22); }
+    .est-btn:disabled { opacity: .45; cursor: default; }
+    .est-badge { font-size: 10px; border-radius: 3px; padding: 1px 5px; margin-left: 3px; }
+    .est-badge.high   { background: rgba(34,197,94,.15); color: var(--green); }
+    .est-badge.medium { background: rgba(245,158,11,.15); color: var(--yellow); }
+    .est-badge.low    { background: rgba(239,68,68,.12); color: var(--red); }
 
     /* profit badge */
     .profit-cell { min-width: 100px; }
@@ -284,6 +291,11 @@
         if (e.key === 'Escape') closeCostEditor(el.dataset.id);
       });
     });
+    body.querySelectorAll('.est-btn').forEach(function(el) {
+      el.addEventListener('click', function() {
+        estimateShipping(el.dataset.id, el.dataset.name, parseInt(el.dataset.price) || 0);
+      });
+    });
   }
 
   function renderCostCell(it) {
@@ -297,6 +309,7 @@
       + '<div class="cost-form" id="form-' + escHtml(it.itemId) + '">'
         + '<input class="cost-input" id="inp-purchase-' + escHtml(it.itemId) + '" data-id="' + escHtml(it.itemId) + '" type="number" min="0" placeholder="仕入れ値" value="' + it.purchasePrice + '">'
         + '<input class="cost-input" id="inp-ship-' + escHtml(it.itemId) + '" data-id="' + escHtml(it.itemId) + '" type="number" min="0" placeholder="送料" value="' + it.shippingCost + '" style="width:64px">'
+        + '<button class="est-btn" id="est-' + escHtml(it.itemId) + '" data-id="' + escHtml(it.itemId) + '" data-name="' + escHtml(it.itemName) + '" data-price="' + it.currentPrice + '" title="類似商品の送料を自動推定">自動推定</button>'
         + '<button class="save-btn" data-id="' + escHtml(it.itemId) + '">保存</button>'
       + '</div>';
   }
@@ -331,6 +344,40 @@
       await loadData();
     } catch(e) {
       alert('保存失敗: ' + e.message);
+    }
+  }
+
+  async function estimateShipping(id, itemName, price) {
+    var btn = document.getElementById('est-' + id);
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '推定中…';
+    var shipEl = document.getElementById('inp-ship-' + id);
+    try {
+      var res = await fetch('/api/estimate-shipping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemName: itemName, price: price })
+      });
+      var data = await res.json();
+      if (data.confidence === 'none' || data.error) {
+        var errMsg = data.error ? data.error.replace('Chrome未起動: ', 'Chrome未起動') : '推定失敗';
+        btn.textContent = data.error && data.error.includes('Chrome') ? 'Chrome未起動' : '候補なし';
+        btn.title = errMsg;
+        setTimeout(function(){ btn.textContent = '自動推定'; btn.disabled = false; btn.title = '類似商品の送料を自動推定'; }, 3000);
+        return;
+      }
+      if (shipEl) {
+        shipEl.value = data.cost;
+        shipEl.style.borderColor = 'var(--green)';
+        setTimeout(function(){ shipEl.style.borderColor = ''; }, 2000);
+      }
+      var confLabel = { high: '高', medium: '中', low: '低' }[data.confidence] || '?';
+      btn.textContent = data.method + ' (' + confLabel + '信頼度)';
+      btn.title = '推定送料: ¥' + data.cost + ' / 参照件数: ' + data.sampleSize + '件';
+    } catch(e) {
+      btn.textContent = 'エラー';
+      setTimeout(function(){ btn.textContent = '自動推定'; btn.disabled = false; }, 2000);
     }
   }
 

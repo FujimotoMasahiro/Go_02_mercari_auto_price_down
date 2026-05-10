@@ -18,6 +18,7 @@ import (
 	"mercari-pricelower/internal/costs"
 	"mercari-pricelower/internal/db"
 	"mercari-pricelower/internal/history"
+	"mercari-pricelower/internal/mercari"
 )
 
 func openBrowser(url string) {
@@ -805,6 +806,32 @@ func parseCsvDate(filename, fullPath string) (time.Time, map[string]struct{}) {
 		items[row[0]] = struct{}{}
 	}
 	return t, items
+}
+
+// handleEstimateShipping は商品名・価格をもとに送料を自動推定します。
+func handleEstimateShipping(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ItemName string `json:"itemName"`
+		Price    int    `json:"price"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	est, err := mercari.EstimateShipping(req.ItemName, req.Price)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":      err.Error(),
+			"confidence": "none",
+		})
+		return
+	}
+	json.NewEncoder(w).Encode(est)
 }
 
 // handleResearchEvents はリサーチ専用の SSE エンドポイントです。
