@@ -4,445 +4,270 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>売れ筋リサーチ — メルカリ自動値引きツール</title>
-  <style>
+  <style id="page-style">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:       #0f1117;
-      --surface:  #1a1d27;
-      --surface2: #22263a;
-      --border:   #2e3250;
-      --accent:   #ff6b35;
-      --green:    #22c55e;
-      --yellow:   #f59e0b;
-      --red:      #ef4444;
-      --blue:     #60a5fa;
-      --text:     #e2e8f0;
-      --muted:    #64748b;
-      --console:  #0a0c14;
-      --radius:   12px;
+      --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:#2e3250;
+      --accent:#ff6b35; --green:#22c55e; --yellow:#f59e0b; --red:#ef4444;
+      --blue:#60a5fa; --purple:#a78bfa; --text:#e2e8f0; --muted:#64748b;
+      --console:#0a0c14; --radius:12px;
     }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
-                   "Noto Sans JP", sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 32px 16px 80px;
+    body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:32px 16px 80px; }
+    header { width:100%; max-width:1100px; display:flex; align-items:center; gap:14px; margin-bottom:28px; }
+    .logo { width:48px; height:48px; background:linear-gradient(135deg,#0ea5e9,#2563eb); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+    header h1 { font-size:22px; font-weight:700; letter-spacing:-.3px; }
+    header p  { font-size:13px; color:var(--muted); margin-top:3px; }
+    .controls-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 24px; width:100%; max-width:1100px; margin-bottom:20px; }
+    .controls-row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px; margin-bottom:14px; }
+    .controls-row:last-child { margin-bottom:0; }
+    .control-group { display:flex; flex-direction:column; gap:5px; }
+    .control-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    select, input[type="number"], input[type="text"] { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:9px 12px; outline:none; transition:border-color .15s; }
+    select { min-width:180px; }
+    input[type="number"] { min-width:80px; width:80px; }
+    input[type="text"]   { min-width:180px; }
+    select:focus, input:focus { border-color:var(--blue); }
+    .price-range-group { display:flex; align-items:center; gap:6px; }
+    .price-range-group input[type="number"] { min-width:90px; width:90px; }
+    .price-sep { color:var(--muted); font-size:13px; }
+    .condition-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .cond-chip { display:flex; align-items:center; gap:5px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:6px 10px; cursor:pointer; font-size:12px; transition:border-color .15s,background .15s; user-select:none; }
+    .cond-chip:hover { border-color:var(--blue); }
+    .cond-chip input[type="checkbox"] { accent-color:var(--blue); width:13px; height:13px; cursor:pointer; }
+    .cond-chip.is-checked { border-color:var(--blue); background:rgba(96,165,250,.1); color:var(--blue); }
+    .run-btn { background:linear-gradient(135deg,#0ea5e9,#2563eb); border:none; border-radius:8px; color:#fff; font-size:14px; font-weight:700; padding:10px 24px; cursor:pointer; transition:opacity .15s,transform .1s; white-space:nowrap; }
+    .run-btn:hover { opacity:.9; }
+    .run-btn:active { transform:scale(.98); }
+    .run-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .stop-btn { background:none; border:1px solid var(--red); border-radius:8px; color:var(--red); font-size:14px; font-weight:700; padding:10px 18px; cursor:pointer; transition:background .15s; display:none; }
+    .stop-btn:hover { background:rgba(239,68,68,.1); }
+    .status-bar { width:100%; max-width:1100px; display:flex; align-items:center; gap:10px; margin-bottom:16px; font-size:13px; }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+    .status-dot.running { background:var(--green); animation:pulse 1s infinite; }
+    .status-dot.done    { background:var(--blue); }
+    .status-dot.error   { background:var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .status-text { color:var(--muted); }
+    .console-wrap { width:100%; max-width:1100px; margin-bottom:24px; }
+    .console-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .console-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    .ghost-btn { font-size:12px; color:var(--muted); background:none; border:1px solid var(--border); border-radius:6px; padding:4px 10px; cursor:pointer; transition:color .15s,border-color .15s; }
+    .ghost-btn:hover { color:var(--text); border-color:var(--muted); }
+    #console { background:var(--console); border:1px solid var(--border); border-radius:10px; padding:14px; height:160px; overflow-y:auto; font-family:"SF Mono","Fira Code","Menlo",monospace; font-size:12px; line-height:1.65; white-space:pre-wrap; word-break:break-all; color:#718096; }
+    #console::-webkit-scrollbar { width:5px; }
+    #console::-webkit-scrollbar-track { background:transparent; }
+    #console::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    .progress-widget { margin-bottom:12px; padding:14px 16px; background:var(--surface); border:1px solid var(--border); border-radius:10px; }
+    .progress-bar-track { width:100%; height:7px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+    .progress-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#0ea5e9,#2563eb); width:0%; transition:width .65s cubic-bezier(.4,0,.2,1); }
+    .progress-bar-fill.is-done  { background:linear-gradient(90deg,#059669,#22c55e); }
+    .progress-bar-fill.is-error { background:#ef4444; width:100% !important; }
+    .progress-info-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
+    .progress-step-lbl { font-size:12px; color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .progress-pct-lbl { font-size:12px; font-weight:700; font-family:"SF Mono","Menlo",monospace; color:#38bdf8; flex-shrink:0; transition:color .3s; }
+    .progress-pct-lbl.is-done  { color:#22c55e; }
+    .progress-pct-lbl.is-error { color:#ef4444; }
+    .progress-count-row { margin-top:5px; font-size:11px; font-weight:700; font-family:"SF Mono","Menlo",monospace; color:var(--yellow); letter-spacing:.02em; }
+    .error-banner { display:none; margin-top:10px; padding:12px 16px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.45); border-radius:8px; color:#fca5a5; font-size:13px; line-height:1.5; }
+    .error-banner strong { display:block; color:#ef4444; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+    .error-banner pre { font-family:"SF Mono","Fira Code","Menlo",monospace; font-size:12px; white-space:pre-wrap; word-break:break-all; margin:0; color:#fca5a5; }
+    .analysis-section { width:100%; max-width:1100px; margin-bottom:28px; display:none; }
+    .analysis-section.visible { display:block; }
+    .section-title { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.09em; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+    .stat-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 20px; }
+    .stat-card.green  { border-color:rgba(34,197,94,.35); }
+    .stat-card.yellow { border-color:rgba(245,158,11,.35); }
+    .stat-card.blue   { border-color:rgba(96,165,250,.35); }
+    .stat-card.purple { border-color:rgba(167,139,250,.35); }
+    .stat-val { font-size:26px; font-weight:800; font-family:"SF Mono","Menlo",monospace; line-height:1; margin-bottom:6px; }
+    .stat-card.green  .stat-val { color:var(--green); }
+    .stat-card.yellow .stat-val { color:var(--yellow); }
+    .stat-card.blue   .stat-val { color:var(--blue); }
+    .stat-card.purple .stat-val { color:var(--purple); }
+    .stat-lbl { font-size:12px; color:var(--muted); }
+    .stat-sub  { font-size:11px; color:var(--muted); margin-top:3px; }
+    .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    @media (max-width:700px) { .charts-row { grid-template-columns:1fr; } }
+    .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+    .chart-title { font-size:12px; font-weight:700; color:var(--text); margin-bottom:14px; }
+    .bar-chart { display:flex; flex-direction:column; gap:8px; }
+    .bar-row { display:flex; align-items:center; gap:8px; }
+    .bar-lbl { font-size:11px; color:var(--muted); width:110px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bar-track { flex:1; height:14px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+    .bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#0ea5e9,#60a5fa); transition:width .5s cubic-bezier(.4,0,.2,1); min-width:2px; }
+    .bar-fill.green  { background:linear-gradient(90deg,#059669,#22c55e); }
+    .bar-fill.yellow { background:linear-gradient(90deg,#d97706,#f59e0b); }
+    .bar-fill.orange { background:linear-gradient(90deg,#ea580c,#fb923c); }
+    .bar-fill.red    { background:linear-gradient(90deg,#dc2626,#ef4444); }
+    .bar-cnt { font-size:11px; color:var(--muted); width:36px; text-align:right; flex-shrink:0; }
+    .insight-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
+    .insight-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; margin-top:12px; }
+    .insight-chip { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+    .insight-chip.hot  { border-color:rgba(34,197,94,.4); background:rgba(34,197,94,.05); }
+    .insight-chip.warm { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.05); }
+    .insight-range { font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .insight-rate  { font-size:18px; font-weight:800; font-family:"SF Mono","Menlo",monospace; }
+    .insight-chip.hot  .insight-rate { color:var(--green); }
+    .insight-chip.warm .insight-rate { color:var(--yellow); }
+    .insight-chip      .insight-rate { color:var(--muted); }
+    .insight-desc { font-size:11px; color:var(--muted); margin-top:2px; }
+    .filter-bar { width:100%; max-width:1100px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-bottom:12px; }
+    .filter-group { display:flex; flex-direction:column; gap:4px; }
+    .filter-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    .filter-bar input[type="text"]   { min-width:160px; font-size:13px; padding:7px 10px; }
+    .filter-bar input[type="number"] { min-width:70px; width:70px; font-size:13px; padding:7px 10px; }
+    .filter-bar select { min-width:140px; font-size:13px; padding:7px 10px; }
+    .filter-inline { display:flex; align-items:center; gap:5px; }
+    .reset-filter-btn { background:none; border:1px solid var(--border); border-radius:6px; color:var(--muted); font-size:12px; padding:7px 12px; cursor:pointer; transition:color .15s,border-color .15s; margin-top:auto; }
+    .reset-filter-btn:hover { color:var(--text); border-color:var(--muted); }
+    .results-header { width:100%; max-width:1100px; display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .section-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.09em; }
+    .results-meta { font-size:12px; color:var(--muted); }
+    .results-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); width:100%; max-width:1100px; overflow:hidden; }
+    .tbl-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead th { background:var(--surface2); padding:10px 14px; text-align:left; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; }
+    th.sortable { cursor:pointer; user-select:none; transition:color .15s; }
+    th.sortable:hover { color:var(--text); }
+    th.sortable.asc::after  { content:' ↑'; color:var(--blue); }
+    th.sortable.desc::after { content:' ↓'; color:var(--blue); }
+    tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:var(--surface2); }
+    tbody td { padding:10px 14px; vertical-align:middle; }
+    .td-rank { text-align:center; width:40px; color:var(--muted); font-size:12px; }
+    .td-thumb { width:64px; padding:6px 10px; }
+    .thumb { width:52px; height:52px; object-fit:cover; border-radius:7px; display:block; background:var(--surface2); }
+    .no-thumb { width:52px; height:52px; background:var(--surface2); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--muted); }
+    .td-name { max-width:360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .td-price { text-align:right; white-space:nowrap; font-weight:600; color:var(--yellow); }
+    .item-link { color:var(--blue); text-decoration:none; font-size:11px; white-space:nowrap; }
+    .item-link:hover { text-decoration:underline; }
+    .placeholder { padding:56px 24px; text-align:center; color:var(--muted); font-size:14px; }
+    .placeholder .ph-icon { font-size:40px; display:block; margin-bottom:12px; opacity:.4; }
+    .pagination { display:flex; align-items:center; justify-content:center; gap:8px; padding:16px; border-top:1px solid var(--border); flex-wrap:wrap; }
+    .page-btn { background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:12px; padding:5px 10px; cursor:pointer; transition:border-color .12s,background .12s; }
+    .page-btn:hover { border-color:var(--blue); }
+    .page-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700; }
+    .page-info { font-size:12px; color:var(--muted); }
+    footer { margin-top:16px; font-size:12px; color:var(--muted); text-align:center; }
+    .sold-in { display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .sold-in-min  { background:rgba(34,197,94,.15);  color:#22c55e; border:1px solid rgba(34,197,94,.35); }
+    .sold-in-hour { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.35); }
+    .sold-in-day-fast { background:rgba(251,146,60,.15); color:#fb923c; border:1px solid rgba(251,146,60,.35); }
+    .sold-in-day  { background:rgba(100,116,139,.1); color:var(--muted); border:1px solid rgba(100,116,139,.2); }
+    .sold-in-none { color:var(--muted); font-size:13px; }
+    .td-category { width:220px; min-width:160px; max-width:260px; vertical-align:middle; }
+    /* カテゴリー階層表示 */
+    .cat-path { display:flex; flex-direction:column; gap:1px; }
+    .cat-row  { display:flex; align-items:center; gap:3px; line-height:1.5; }
+    .cat-indent { flex-shrink:0; color:var(--border); font-size:10px; }
+    .cat-seg  { font-size:11px; color:var(--muted); }
+    .cat-leaf { display:inline-block; font-size:11px; font-weight:600; color:var(--purple); background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.35); border-radius:4px; padding:1px 7px; }
+    .td-soldin { white-space:nowrap; }
+    /* ── カスケードカテゴリーセレクト ── */
+    @keyframes cascadeFadeIn {
+      from { opacity:0; transform:translateX(-6px); }
+      to   { opacity:1; transform:translateX(0); }
     }
-
-    /* ── Header ─────────────────────────────── */
-    header {
-      width: 100%; max-width: 1100px;
-      display: flex; align-items: center; gap: 14px;
-      margin-bottom: 36px;
-    }
-    .logo {
-      width: 48px; height: 48px;
-      background: linear-gradient(135deg, #0ea5e9, #2563eb);
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px; flex-shrink: 0;
-    }
-    header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
-    header p  { font-size: 13px; color: var(--muted); margin-top: 3px; }
-    /* ── Controls ─────────────────────────── */
-    .controls-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      width: 100%; max-width: 1100px;
-      margin-bottom: 24px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 16px;
-    }
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .control-label {
-      font-size: 11px; font-weight: 700;
-      color: var(--muted); text-transform: uppercase;
-      letter-spacing: .08em;
-    }
-    select, input[type="number"] {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 14px;
-      padding: 9px 12px;
-      outline: none;
-      transition: border-color .15s;
-      min-width: 200px;
-    }
-    select:focus, input[type="number"]:focus {
-      border-color: var(--blue);
-    }
-    input[type="number"] { min-width: 80px; width: 80px; }
-
-    .run-btn {
-      background: linear-gradient(135deg, #0ea5e9, #2563eb);
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 14px; font-weight: 700;
-      padding: 10px 24px;
-      cursor: pointer;
-      transition: opacity .15s, transform .1s;
-      white-space: nowrap;
-    }
-    .run-btn:hover { opacity: .9; }
-    .run-btn:active { transform: scale(.98); }
-    .run-btn:disabled { opacity: .45; cursor: not-allowed; }
-
-    .stop-btn {
-      background: none;
-      border: 1px solid var(--red);
-      border-radius: 8px;
-      color: var(--red);
-      font-size: 14px; font-weight: 700;
-      padding: 10px 18px;
-      cursor: pointer;
-      transition: background .15s;
-      display: none;
-    }
-    .stop-btn:hover { background: rgba(239,68,68,.1); }
-
-    /* ── Status bar ──────────────────────── */
-    .status-bar {
-      width: 100%; max-width: 1100px;
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 16px;
-      font-size: 13px;
-    }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--muted); flex-shrink: 0;
-    }
-    .status-dot.running { background: var(--green); animation: pulse 1s infinite; }
-    .status-dot.done    { background: var(--blue); }
-    .status-dot.error   { background: var(--red); }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: .4; }
-    }
-    .status-text { color: var(--muted); }
-
-    /* ── Console ─────────────────────────── */
-    .console-wrap {
-      width: 100%; max-width: 1100px;
-      margin-bottom: 24px;
-    }
-    .console-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    .console-label {
-      font-size: 11px; font-weight: 700;
-      color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
-    }
-    .ghost-btn {
-      font-size: 12px; color: var(--muted); background: none;
-      border: 1px solid var(--border); border-radius: 6px;
-      padding: 4px 10px; cursor: pointer;
-      transition: color .15s, border-color .15s;
-    }
-    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
-    #console {
-      background: var(--console);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      height: 180px;
-      overflow-y: auto;
-      font-family: "SF Mono","Fira Code","Menlo",monospace;
-      font-size: 12px; line-height: 1.65;
-      white-space: pre-wrap; word-break: break-all;
-      color: #718096;
-    }
-    #console::-webkit-scrollbar { width: 5px; }
-    #console::-webkit-scrollbar-track { background: transparent; }
-    #console::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* ── Results ─────────────────────────── */
-    .results-header {
-      width: 100%; max-width: 1100px;
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .section-label {
-      font-size: 11px; font-weight: 700;
-      color: var(--muted); text-transform: uppercase; letter-spacing: .09em;
-    }
-    .results-meta {
-      font-size: 12px; color: var(--muted);
-    }
-    .results-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      width: 100%; max-width: 1100px;
-      overflow: hidden;
-    }
-
-    /* ── Table ───────────────────────────── */
-    .tbl-wrap {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%; border-collapse: collapse;
-      font-size: 13px;
-    }
-    thead th {
-      background: var(--surface2);
-      padding: 10px 14px;
-      text-align: left;
-      font-size: 11px; font-weight: 700;
-      color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
-      white-space: nowrap;
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0;
-    }
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      transition: background .1s;
-    }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--surface2); }
-    tbody td {
-      padding: 10px 14px;
-      vertical-align: middle;
-    }
-    .td-rank { text-align: center; width: 40px; color: var(--muted); font-size: 12px; }
-    .td-thumb { width: 64px; padding: 6px 10px; }
-    .thumb {
-      width: 52px; height: 52px;
-      object-fit: cover; border-radius: 7px; display: block;
-      background: var(--surface2);
-    }
-    .no-thumb {
-      width: 52px; height: 52px;
-      background: var(--surface2); border-radius: 7px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; color: var(--muted);
-    }
-    .td-name {
-      max-width: 400px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .td-price {
-      text-align: right; white-space: nowrap;
-      font-weight: 600;
-      color: var(--yellow);
-    }
-    .td-page {
-      text-align: center;
-      font-size: 11px; color: var(--muted);
-    }
-    .item-link {
-      color: var(--blue);
-      text-decoration: none;
-      font-size: 11px;
-      white-space: nowrap;
-    }
-    .item-link:hover { text-decoration: underline; }
-
-    /* ── Empty / Loading ─────────────────── */
-    .placeholder {
-      padding: 56px 24px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 14px;
-    }
-    .placeholder .ph-icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: .4; }
-
-    /* ── Pagination ──────────────────────── */
-    .pagination {
-      display: flex; align-items: center; justify-content: center;
-      gap: 8px;
-      padding: 16px;
-      border-top: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-    .page-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 12px;
-      padding: 5px 10px;
-      cursor: pointer;
-      transition: border-color .12s, background .12s;
-    }
-    .page-btn:hover { border-color: var(--blue); }
-    .page-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
-    .page-info { font-size: 12px; color: var(--muted); }
-
-    footer { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
-
-    /* ── Progress widget ────────────────────────────── */
-    .progress-widget {
-      margin-bottom: 12px; padding: 14px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border); border-radius: 10px;
-    }
-    .progress-bar-track {
-      width: 100%; height: 7px;
-      background: var(--surface2); border-radius: 999px; overflow: hidden;
-    }
-    .progress-bar-fill {
-      height: 100%; border-radius: 999px;
-      background: linear-gradient(90deg, #0ea5e9, #2563eb);
-      width: 0%;
-      transition: width .65s cubic-bezier(.4,0,.2,1);
-    }
-    .progress-bar-fill.is-done  { background: linear-gradient(90deg, #059669, #22c55e); }
-    .progress-bar-fill.is-error { background: #ef4444; width: 100% !important; }
-    .progress-info-row {
-      display: flex; align-items: center; gap: 10px;
-      margin-top: 8px;
-    }
-    .progress-step-lbl {
-      font-size: 12px; color: var(--muted); flex: 1;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .progress-pct-lbl {
-      font-size: 12px; font-weight: 700;
-      font-family: "SF Mono","Menlo",monospace;
-      color: #38bdf8; flex-shrink: 0; transition: color .3s;
-    }
-    .progress-pct-lbl.is-done  { color: #22c55e; }
-    .progress-pct-lbl.is-error { color: #ef4444; }
-    .progress-count-row {
-      margin-top: 5px;
-      font-size: 11px; font-weight: 700;
-      font-family: "SF Mono","Menlo",monospace;
-      color: var(--yellow); letter-spacing: .02em;
-    }
-
-    /* ── Nav Drawer ──────────────────────────────────── */
-    .ham-btn {
-      position: fixed; top: 16px; right: 16px; z-index: 1000;
-      width: 42px; height: 42px;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 10px; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 5px;
-      transition: border-color .15s, background .15s;
-    }
-    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
-    .ham-line {
-      width: 18px; height: 2px;
-      background: var(--text); border-radius: 2px;
-      transition: transform .25s ease, opacity .2s ease;
-    }
-    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
-    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-    .nav-backdrop {
-      position: fixed; inset: 0; z-index: 900;
-      background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
-      opacity: 0; pointer-events: none; transition: opacity .25s ease;
-    }
-    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
-    .nav-drawer {
-      position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950;
-      width: 260px; background: var(--surface);
-      border-left: 1px solid var(--border);
-      display: flex; flex-direction: column; padding-top: 16px;
-      transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto;
-    }
-    .nav-drawer.is-open { right: 0; }
-    .nav-drawer-head {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 18px 18px; border-bottom: 1px solid var(--border);
-    }
-    .nav-drawer-logo {
-      width: 34px; height: 34px;
-      background: linear-gradient(135deg, var(--accent), #ff3c7a);
-      border-radius: 8px; display: flex; align-items: center;
-      justify-content: center; font-size: 17px; flex-shrink: 0;
-    }
-    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
-    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
-    .nav-links { padding: 10px 0; flex: 1; }
-    .nav-link {
-      display: flex; align-items: center; gap: 11px;
-      padding: 11px 18px; text-decoration: none; color: var(--muted);
-      font-size: 14px; font-weight: 500;
-      border-left: 3px solid transparent;
-      transition: color .15s, background .15s, border-color .15s;
-    }
-    .nav-link:hover { color: var(--text); background: var(--surface2); }
-    .nav-link.is-active {
-      color: var(--text); background: rgba(255,107,53,.08);
-      border-left-color: var(--accent); font-weight: 600;
-    }
-    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
-    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
-
-    /* ── Sold-in badge ───────────────────────────── */
-    .sold-in {
-      display: inline-block;
-      padding: 3px 9px; border-radius: 999px;
-      font-size: 11px; font-weight: 700; white-space: nowrap;
-    }
-    .sold-in-min  { background: rgba(34,197,94,.15);  color: #22c55e; border: 1px solid rgba(34,197,94,.35); }
-    .sold-in-hour { background: rgba(245,158,11,.15); color: #f59e0b; border: 1px solid rgba(245,158,11,.35); }
-    .sold-in-day-fast { background: rgba(251,146,60,.15); color: #fb923c; border: 1px solid rgba(251,146,60,.35); }
-    .sold-in-day  { background: rgba(100,116,139,.1); color: var(--muted); border: 1px solid rgba(100,116,139,.2); }
-    .sold-in-none { color: var(--muted); font-size: 13px; }
-    .td-soldin { white-space: nowrap; }
+    .cascade-wrap  { display:flex; flex-wrap:wrap; align-items:center; gap:6px; row-gap:8px; }
+    .cascade-level { display:flex; align-items:center; gap:4px; animation:cascadeFadeIn .18s ease; }
+    .cascade-arrow { color:var(--accent); font-size:20px; line-height:1; flex-shrink:0; opacity:.7; }
+    .cascade-sel   { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:9px 12px; outline:none; transition:border-color .15s,box-shadow .15s; min-width:160px; cursor:pointer; appearance:auto; }
+    .cascade-sel:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(96,165,250,.15); }
+    .cascade-sel:hover { border-color:var(--accent); }
+    .filter-bar .cascade-sel  { font-size:13px; padding:7px 10px; min-width:130px; }
+    .filter-bar .cascade-arrow { font-size:16px; }
+    /* ── Nav Drawer ── */
+    .ham-btn { position:fixed; top:16px; right:16px; z-index:1000; width:42px; height:42px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:border-color .15s,background .15s; }
+    .ham-btn:hover { border-color:var(--accent); background:var(--surface); }
+    .ham-line { width:18px; height:2px; background:var(--text); border-radius:2px; transition:transform .25s ease,opacity .2s ease; }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity:0; transform:scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+    .nav-backdrop { position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.55); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity .25s ease; }
+    .nav-backdrop.is-open { opacity:1; pointer-events:all; }
+    .nav-drawer { position:fixed; top:0; right:-270px; bottom:0; z-index:950; width:260px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; padding-top:16px; transition:right .28s cubic-bezier(.4,0,.2,1); overflow-y:auto; }
+    .nav-drawer.is-open { right:0; }
+    .nav-drawer-head { display:flex; align-items:center; gap:10px; padding:8px 18px 18px; border-bottom:1px solid var(--border); }
+    .nav-drawer-logo { width:34px; height:34px; background:linear-gradient(135deg,var(--accent),#ff3c7a); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+    .nav-drawer-title { font-size:13px; font-weight:700; color:var(--text); }
+    .nav-drawer-sub   { font-size:11px; color:var(--muted); }
+    .nav-links { padding:10px 0; flex:1; }
+    .nav-link { display:flex; align-items:center; gap:11px; padding:11px 18px; text-decoration:none; color:var(--muted); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:color .15s,background .15s,border-color .15s; }
+    .nav-link:hover { color:var(--text); background:var(--surface2); }
+    .nav-link.is-active { color:var(--text); background:rgba(255,107,53,.08); border-left-color:var(--accent); font-weight:600; }
+    .nav-link-icon { font-size:17px; flex-shrink:0; width:22px; text-align:center; }
+    .nav-sep { height:1px; background:var(--border); margin:8px 18px; }
   </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- ═══════════════════════════════════ PAGE CONTENT ══════════════════════════════════ -->
+<div id="app-content">
+
 <header>
   <div class="logo">🔍</div>
   <div>
     <h1>売れ筋リサーチ</h1>
-    <p>カテゴリー別の売り切れ商品を調査して売上・利益を最大化</p>
+    <p>メルカリの絞り込み条件を活用して売れ筋商品を調査・分析</p>
   </div>
 </header>
 
 <!-- Controls -->
 <div class="controls-card">
-  <div class="control-group">
-    <span class="control-label">カテゴリー</span>
-    <select id="categorySelect">
-      <option value="">すべて</option>
-      <option value="5">レディース</option>
-      <option value="6">メンズ</option>
-      <option value="7">ベビー・キッズ</option>
-      <option value="8">インテリア・住まい・小物</option>
-      <option value="9">本・音楽・ゲーム</option>
-      <option value="10">おもちゃ・ホビー・グッズ</option>
-      <option value="11">コスメ・香水・美容</option>
-      <option value="12">家電・スマホ・カメラ</option>
-      <option value="13">スポーツ・レジャー</option>
-      <option value="14">ハンドメイド</option>
-      <option value="15">チケット</option>
-      <option value="16">自動車・オートバイ</option>
-      <option value="17">その他</option>
-    </select>
+  <div class="controls-row">
+    <div class="control-group">
+      <span class="control-label">カテゴリー</span>
+      <div id="searchCatContainer" class="cascade-wrap"></div>
+    </div>
+    <div class="control-group">
+      <span class="control-label">ページ数</span>
+      <input type="number" id="pagesInput" value="5" min="1" max="10">
+    </div>
+    <div class="control-group" style="flex:1;min-width:200px">
+      <span class="control-label">キーワード</span>
+      <input type="text" id="keywordInput" placeholder="例: ナイキ スニーカー">
+    </div>
+    <div class="control-group">
+      <span class="control-label">価格範囲</span>
+      <div class="price-range-group">
+        <input type="number" id="priceMinInput" placeholder="最低" min="0" step="100">
+        <span class="price-sep">〜</span>
+        <input type="number" id="priceMaxInput" placeholder="最高" min="0" step="100">
+        <span class="price-sep" style="font-size:12px">円</span>
+      </div>
+    </div>
   </div>
-  <div class="control-group">
-    <span class="control-label">ページ数</span>
-    <input type="number" id="pagesInput" value="5" min="1" max="10">
+  <div class="controls-row">
+    <div class="control-group">
+      <span class="control-label">商品の状態</span>
+      <div class="condition-row" id="conditionRow">
+        <label class="cond-chip"><input type="checkbox" value="1"> 新品・未使用</label>
+        <label class="cond-chip"><input type="checkbox" value="2"> 未使用に近い</label>
+        <label class="cond-chip"><input type="checkbox" value="3"> 目立った傷なし</label>
+        <label class="cond-chip"><input type="checkbox" value="4"> やや傷あり</label>
+        <label class="cond-chip"><input type="checkbox" value="5"> 傷・汚れあり</label>
+        <label class="cond-chip"><input type="checkbox" value="6"> 状態が悪い</label>
+      </div>
+    </div>
+    <div class="control-group">
+      <span class="control-label">送料負担</span>
+      <select id="shippingPayerSelect">
+        <option value="">指定なし</option>
+        <option value="1">送料込み（出品者負担）</option>
+        <option value="2">着払い（購入者負担）</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-left:auto">
+      <button class="run-btn" id="runBtn" onclick="runResearch()">▶ リサーチ開始</button>
+      <button class="stop-btn" id="stopBtn" onclick="stopResearch()">■ 停止</button>
+      <button class="ghost-btn" id="restoreBtn" onclick="restoreLastConditions()" title="前回のリサーチ条件を復元" style="display:none">🔄 前回の条件</button>
+      <button class="ghost-btn" onclick="loadResults()">最新結果を表示</button>
+    </div>
   </div>
-  <button class="run-btn" id="runBtn" onclick="runResearch()">▶ リサーチ開始</button>
-  <button class="stop-btn" id="stopBtn" onclick="stopResearch()">■ 停止</button>
-  <button class="ghost-btn" onclick="loadResults()" style="margin-left:auto">最新結果を表示</button>
 </div>
 
 <!-- Status -->
@@ -455,9 +280,11 @@
 <div class="console-wrap">
   <div class="console-header">
     <span class="console-label">実行ログ</span>
-    <button class="ghost-btn" onclick="document.getElementById('console').textContent=''">クリア</button>
+    <div style="display:flex;gap:8px">
+      <button class="ghost-btn" id="logToggleBtn" onclick="toggleLog()">ログを表示 ▼</button>
+      <button class="ghost-btn" onclick="document.getElementById('console').textContent=''">クリア</button>
+    </div>
   </div>
-  <!-- プログレスバー (実行中のみ表示) -->
   <div class="progress-widget" id="progressWidget" style="display:none">
     <div class="progress-bar-track">
       <div class="progress-bar-fill" id="progressFill"></div>
@@ -468,7 +295,93 @@
     </div>
     <div class="progress-count-row" id="progressCount" style="display:none"></div>
   </div>
-  <div id="console"></div>
+  <div class="error-banner" id="errorBanner">
+    <strong>⚠ エラーが発生しました</strong>
+    <pre id="errorBannerText"></pre>
+  </div>
+  <div id="console" style="display:none"></div>
+</div>
+
+<!-- 傾向分析 -->
+<div class="analysis-section" id="analysisSection">
+  <div class="section-title">傾向分析</div>
+  <div class="stat-cards">
+    <div class="stat-card">
+      <div class="stat-val" id="statTotal">—</div>
+      <div class="stat-lbl">総商品数</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-val" id="statMinPct">—</div>
+      <div class="stat-lbl">分以内に売れた率</div>
+      <div class="stat-sub" id="statMinCnt"></div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-val" id="statAvgPrice">—</div>
+      <div class="stat-lbl">平均価格</div>
+      <div class="stat-sub" id="statPriceRange"></div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-val" id="statHotRange">—</div>
+      <div class="stat-lbl">最も回転の早い価格帯</div>
+      <div class="stat-sub" id="statHotRateSub"></div>
+    </div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">売れた時間の分布</div>
+      <div class="bar-chart" id="soldTimeChart"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">価格帯別件数</div>
+      <div class="bar-chart" id="priceChart"></div>
+    </div>
+  </div>
+  <div class="insight-card">
+    <div class="chart-title">セドリ向け分析 — 価格帯別の回転率</div>
+    <div class="insight-grid" id="cediInsight"></div>
+  </div>
+</div>
+
+<!-- フィルターバー -->
+<div class="filter-bar" id="filterBar" style="display:none">
+  <div class="filter-group">
+    <span class="filter-label">商品名で絞り込み</span>
+    <input type="text" id="filterText" placeholder="例: Nike、スニーカー" oninput="applyFilter()">
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">価格</span>
+    <div class="filter-inline">
+      <input type="number" id="filterPriceMin" placeholder="最低" min="0" step="100" oninput="applyFilter()">
+      <span style="color:var(--muted);font-size:13px">〜</span>
+      <input type="number" id="filterPriceMax" placeholder="最高" min="0" step="100" oninput="applyFilter()">
+      <span style="color:var(--muted);font-size:11px">円</span>
+    </div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">売れた時間</span>
+    <select id="filterSoldIn" onchange="applyFilter()">
+      <option value="">全て</option>
+      <option value="min">分以内のみ</option>
+      <option value="hour">時間以内</option>
+      <option value="day3">3日以内</option>
+      <option value="none">不明のみ</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">カテゴリー</span>
+    <div id="filterCatContainer" class="cascade-wrap"></div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">並び替え</span>
+    <select id="sortBy" onchange="applyFilter()">
+      <option value="default">デフォルト</option>
+      <option value="price_asc">価格 安い順</option>
+      <option value="price_desc">価格 高い順</option>
+      <option value="sold_asc">売れた時間 早い順</option>
+      <option value="sold_desc">売れた時間 遅い順</option>
+    </select>
+  </div>
+  <button class="reset-filter-btn" onclick="resetFilter()">リセット</button>
 </div>
 
 <!-- Results -->
@@ -481,16 +394,16 @@
     <table>
       <thead>
         <tr>
-          <th>#</th>
-          <th>画像</th>
-          <th>商品名</th>
-          <th>価格</th>
-          <th>売れた時間</th>
+          <th>#</th><th>画像</th>
+          <th class="sortable" data-sort="name" onclick="toggleSort('name')">商品名</th>
+          <th class="sortable" data-sort="price" onclick="toggleSort('price')">価格</th>
+          <th class="sortable" data-sort="soldin" onclick="toggleSort('soldin')">売れた時間</th>
+          <th>カテゴリー</th>
           <th>リンク</th>
         </tr>
       </thead>
       <tbody id="resultsTbody">
-        <tr><td colspan="6">
+        <tr><td colspan="7">
           <div class="placeholder">
             <span class="ph-icon">🔍</span>
             カテゴリーを選択して「リサーチ開始」を押してください
@@ -504,274 +417,904 @@
 <footer>Mercari Auto Price Down Tool — 売れ筋リサーチ</footer>
 
 <script>
-  const consoleEl   = document.getElementById('console');
-  const statusDot   = document.getElementById('statusDot');
-  const statusText  = document.getElementById('statusText');
-  const runBtn      = document.getElementById('runBtn');
-  const stopBtn     = document.getElementById('stopBtn');
-  const resultsMeta = document.getElementById('resultsMeta');
+  // ── カテゴリーツリー（メルカリ実データ準拠・3階層） ───────────────────
+  // ※ name は item.category の実際の表記と一致させること（フィルター用）
+  // ※ id は Mercari API の categoryId（検索用）
+  var CATEGORY_TREE = [
+    // ─ ファッション ──────────────────────────────────────────────────────
+    { name:'ファッション', id:null, children:[
+      { name:'レディース', id:'5', children:[
+        { name:'ジャケット・アウター', id:'5', children:[] },
+        { name:'トップス',            id:'5', children:[] },
+        { name:'ワンピース',          id:'5', children:[] },
+        { name:'スカート',            id:'5', children:[] },
+        { name:'パンツ',              id:'5', children:[] },
+        { name:'バッグ',              id:'5', children:[] },
+        { name:'靴',                  id:'5', children:[] },
+        { name:'アクセサリー',        id:'5', children:[] },
+        { name:'帽子',                id:'5', children:[] },
+        { name:'時計',                id:'5', children:[] },
+        { name:'下着・ナイトウェア',  id:'5', children:[] },
+        { name:'水着',                id:'5', children:[] },
+        { name:'浴衣・着物',          id:'5', children:[] },
+        { name:'小物',                id:'5', children:[] },
+      ]},
+      { name:'メンズ', id:'6', children:[
+        { name:'ジャケット・アウター', id:'6', children:[] },
+        { name:'トップス',            id:'6', children:[] },
+        { name:'パンツ',              id:'6', children:[] },
+        { name:'スーツ',              id:'6', children:[] },
+        { name:'靴',                  id:'6', children:[] },
+        { name:'バッグ',              id:'6', children:[] },
+        { name:'小物',                id:'6', children:[] },
+        { name:'帽子',                id:'6', children:[] },
+        { name:'アクセサリー',        id:'6', children:[] },
+        { name:'時計',                id:'6', children:[] },
+      ]},
+    ]},
+    // ─ ベビー・キッズ ─────────────────────────────────────────────────────
+    { name:'ベビー・キッズ', id:'7', children:[
+      { name:'キッズファッション小物', id:'7', children:[
+        { name:'バッグ', id:'7', children:[] },
+      ]},
+    ]},
+    // ─ コスメ・香水・美容 ─────────────────────────────────────────────────
+    { name:'コスメ・香水・美容', id:'11', children:[] },
+    // ─ ダイエット・健康 ───────────────────────────────────────────────────
+    { name:'ダイエット・健康', id:'11', children:[
+      { name:'プロテイン',      id:'11', children:[
+        { name:'ソイプロテイン', id:'11', children:[] },
+      ]},
+      { name:'看護・介護用品',  id:'11', children:[
+        { name:'歩行補助・転倒防止', id:'11', children:[] },
+      ]},
+    ]},
+    // ─ スマホ・タブレット・パソコン ───────────────────────────────────────
+    { name:'スマホ・タブレット・パソコン', id:'12', children:[
+      { name:'スマートウォッチ・ウェアラブル', id:'12', children:[
+        { name:'その他スマートウォッチ本体', id:'12', children:[] },
+        { name:'スマートグラス',             id:'12', children:[] },
+      ]},
+      { name:'PC周辺機器', id:'12', children:[
+        { name:'プリンター・複合機',         id:'12', children:[] },
+        { name:'ルーター・ネットワーク機器', id:'12', children:[] },
+        { name:'スキャナー',                 id:'12', children:[] },
+      ]},
+      { name:'ゲーミングPC', id:'12', children:[
+        { name:'ゲーミングデスクトップ', id:'12', children:[] },
+      ]},
+    ]},
+    // ─ テレビ・オーディオ・カメラ ─────────────────────────────────────────
+    { name:'テレビ・オーディオ・カメラ', id:'12', children:[
+      { name:'オーディオ機器', id:'12', children:[
+        { name:'イヤホン',            id:'12', children:[] },
+        { name:'ポータブルプレーヤー', id:'12', children:[] },
+      ]},
+      { name:'カメラ', id:'12', children:[
+        { name:'デジタルカメラ', id:'12', children:[] },
+        { name:'フィルムカメラ', id:'12', children:[] },
+      ]},
+    ]},
+    // ─ 生活家電・空調 ─────────────────────────────────────────────────────
+    { name:'生活家電・空調', id:'12', children:[
+      { name:'生活家電', id:'12', children:[
+        { name:'食洗機',                         id:'12', children:[] },
+        { name:'コーヒーメーカー・エスプレッソマシン', id:'12', children:[] },
+        { name:'ミシン',                         id:'12', children:[] },
+        { name:'喫煙具・ライター',               id:'12', children:[] },
+      ]},
+      { name:'電池・充電池', id:'12', children:[] },
+    ]},
+    // ─ 本・音楽・ゲーム ───────────────────────────────────────────────────
+    { name:'本・音楽・ゲーム', id:'9', children:[] },
+    // ─ ゲーム・おもちゃ・グッズ ──────────────────────────────────────────
+    { name:'ゲーム・おもちゃ・グッズ', id:'10', children:[
+      { name:'テレビゲーム', id:'10', children:[
+        { name:'Nintendo Switch2',       id:'10', children:[] },
+        { name:'プレイステーション5(PS5)', id:'10', children:[] },
+        { name:'その他機種',             id:'10', children:[] },
+        { name:'その他',                 id:'10', children:[] },
+      ]},
+      { name:'トレーディングカード', id:'10', children:[
+        { name:'ポケモンカードゲーム',         id:'10', children:[] },
+        { name:'マジック：ザ・ギャザリング',   id:'10', children:[] },
+        { name:'スポーツカード',               id:'10', children:[] },
+      ]},
+      { name:'キャラクターグッズ', id:'10', children:[
+        { name:'ぬいぐるみ・マスコット', id:'10', children:[] },
+        { name:'その他',                id:'10', children:[] },
+      ]},
+      { name:'タレントグッズ', id:'10', children:[
+        { name:'アイドル', id:'10', children:[] },
+      ]},
+      { name:'ミリタリー', id:'10', children:[
+        { name:'トイガン', id:'10', children:[] },
+      ]},
+    ]},
+    // ─ ホビー・楽器・アート ───────────────────────────────────────────────
+    { name:'ホビー・楽器・アート', id:'10', children:[
+      { name:'楽器・機材', id:'10', children:[
+        { name:'ギター',           id:'10', children:[] },
+        { name:'デジタル楽器',     id:'10', children:[] },
+        { name:'管楽器・吹奏楽器', id:'10', children:[] },
+        { name:'DJ機材',           id:'10', children:[] },
+      ]},
+      { name:'模型・プラモデル', id:'10', children:[
+        { name:'鉄道模型', id:'10', children:[] },
+      ]},
+      { name:'ラジコン・ドローン', id:'10', children:[
+        { name:'ホビーラジコン', id:'10', children:[] },
+      ]},
+      { name:'美術品・アンティーク・コレクション', id:'10', children:[
+        { name:'アンティーク雑貨', id:'10', children:[] },
+      ]},
+      { name:'占い・開運', id:'10', children:[] },
+    ]},
+    // ─ 家具・インテリア ───────────────────────────────────────────────────
+    { name:'家具・インテリア', id:'8', children:[
+      { name:'ベッド・マットレス', id:'8', children:[
+        { name:'その他', id:'8', children:[] },
+      ]},
+      { name:'椅子・チェア', id:'8', children:[
+        { name:'オフィスチェア・ワークチェア', id:'8', children:[] },
+      ]},
+      { name:'リビング収納', id:'8', children:[
+        { name:'テレビ台', id:'8', children:[] },
+      ]},
+    ]},
+    // ─ スポーツ ───────────────────────────────────────────────────────────
+    { name:'スポーツ', id:'13', children:[
+      { name:'バスケットボール', id:'13', children:[
+        { name:'シューズ(男性用)', id:'13', children:[] },
+      ]},
+      { name:'ストリート系スポーツ', id:'13', children:[
+        { name:'スケートボード', id:'13', children:[] },
+      ]},
+      { name:'体育器具・用品', id:'13', children:[] },
+    ]},
+    // ─ アウトドア・釣り・旅行用品 ─────────────────────────────────────────
+    { name:'アウトドア・釣り・旅行用品', id:'13', children:[
+      { name:'アウトドア', id:'13', children:[
+        { name:'テント・タープ',      id:'13', children:[] },
+        { name:'アウトドアヒーター',  id:'13', children:[] },
+      ]},
+      { name:'フィッシング', id:'13', children:[
+        { name:'ロッド', id:'13', children:[] },
+      ]},
+    ]},
+    // ─ チケット ───────────────────────────────────────────────────────────
+    { name:'チケット', id:'15', children:[
+      { name:'スポーツ', id:'15', children:[
+        { name:'野球', id:'15', children:[] },
+      ]},
+      { name:'株主優待券・割引券', id:'15', children:[
+        { name:'ショッピング', id:'15', children:[] },
+      ]},
+    ]},
+    // ─ 車・バイク・自転車 ─────────────────────────────────────────────────
+    { name:'車・バイク・自転車', id:'16', children:[
+      { name:'車', id:'16', children:[
+        { name:'パーツ',          id:'16', children:[] },
+        { name:'タイヤ・ホイール', id:'16', children:[] },
+        { name:'カーナビ',         id:'16', children:[] },
+        { name:'カーオーディオ',   id:'16', children:[] },
+        { name:'アクセサリー',     id:'16', children:[] },
+      ]},
+      { name:'バイク', id:'16', children:[
+        { name:'バイク車体',        id:'16', children:[] },
+        { name:'パーツ',            id:'16', children:[] },
+        { name:'バイクウェア・装備', id:'16', children:[] },
+        { name:'セキュリティ・セーフティ', id:'16', children:[] },
+      ]},
+      { name:'自転車', id:'16', children:[
+        { name:'自転車本体', id:'16', children:[] },
+        { name:'パーツ',     id:'16', children:[] },
+      ]},
+    ]},
+    // ─ ハンドメイド・手芸 ─────────────────────────────────────────────────
+    { name:'ハンドメイド・手芸', id:'14', children:[
+      { name:'アクセサリー', id:'14', children:[
+        { name:'指輪・リング', id:'14', children:[] },
+      ]},
+    ]},
+    // ─ キッチン・日用品・その他 ───────────────────────────────────────────
+    { name:'キッチン・日用品・その他', id:'17', children:[
+      { name:'まとめ売り', id:'17', children:[
+        { name:'キッチン・日用品・その他', id:'17', children:[] },
+      ]},
+    ]},
+    // ─ 食品・飲料・酒 ─────────────────────────────────────────────────────
+    { name:'食品・飲料・酒', id:'17', children:[
+      { name:'飲料・酒', id:'17', children:[
+        { name:'ソフトドリンク', id:'17', children:[] },
+      ]},
+    ]},
+    // ─ DIY・工具 ──────────────────────────────────────────────────────────
+    { name:'DIY・工具', id:'17', children:[
+      { name:'塗料・塗装', id:'17', children:[
+        { name:'スプレー塗料', id:'17', children:[] },
+      ]},
+      { name:'材料・資材', id:'17', children:[
+        { name:'金属・非鉄金属・合金', id:'17', children:[] },
+        { name:'電設資材',             id:'17', children:[] },
+      ]},
+      { name:'金物・部品', id:'17', children:[
+        { name:'チェーン', id:'17', children:[] },
+      ]},
+    ]},
+  ];
 
-  let allItems = [];
-  let eventSource = null;
+  // ── カスケードカテゴリー選择コンポーネント（再帰・任意階層対応）────
+  // 設計: _addSlot(nodes, level) を再帰呼び出し。
+  //       各 change イベントで `level` をクロージャ引数として安全にキャプチャ。
+  function CascadingSelect(container, onChange) {
+    var _slots = [];  // [{wrap, sel, nodes}, ...]
+    var _state = { id:'', name:'すべて', path:'' };
 
-  // ── 進捗管理 ─────────────────────────────────────────────
-  let totalPages = 0;
-  let totalDetail = 0;
+    // level 以降のスロットをすべて DOM から除去
+    function _trimFrom(level) {
+      while (_slots.length > level) {
+        var s = _slots.pop();
+        if (s.wrap && s.wrap.parentNode) s.wrap.parentNode.removeChild(s.wrap);
+      }
+    }
 
+    // 現在の選択状態から state を構築
+    function _buildState() {
+      var pathParts = [];
+      var lastId = '';
+      for (var i = 0; i < _slots.length; i++) {
+        var slot = _slots[i];
+        var v = slot.sel.value;
+        if (v === '') break;
+        var node = slot.nodes[+v];
+        if (!node) break;
+        pathParts.push(node.name);
+        if (node.id) lastId = node.id;
+      }
+      if (pathParts.length === 0) return { id:'', name:'すべて', path:'' };
+      return {
+        id:   lastId,
+        name: pathParts[pathParts.length - 1],
+        path: pathParts.join(' > ')
+      };
+    }
+
+    // level 階層のスロットを追加（level は各呼び出しスコープで安全にキャプチャされる）
+    function _addSlot(nodes, level) {
+      _trimFrom(level);
+
+      var wrap = document.createElement('div');
+      wrap.className = 'cascade-level';
+
+      if (level > 0) {
+        var arrow = document.createElement('span');
+        arrow.className = 'cascade-arrow';
+        arrow.textContent = '›';
+        wrap.appendChild(arrow);
+      }
+
+      var sel = document.createElement('select');
+      sel.className = 'cascade-sel';
+
+      var blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = level === 0 ? 'すべて' : '— サブカテゴリー —';
+      sel.appendChild(blank);
+
+      nodes.forEach(function(node, i) {
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = node.name;
+        sel.appendChild(opt);
+      });
+
+      wrap.appendChild(sel);
+      container.appendChild(wrap);
+
+      var slotObj = { wrap: wrap, sel: sel, nodes: nodes };
+      _slots.push(slotObj);
+
+      // `level` はこの関数呼び出しのスコープで確定。indexOf 不要で安全
+      sel.addEventListener('change', function() {
+        _trimFrom(level + 1);
+        var v = sel.value;
+        if (v !== '') {
+          var node = nodes[+v];
+          if (node && node.children && node.children.length > 0) {
+            _addSlot(node.children, level + 1);
+          }
+        }
+        _state = _buildState();
+        onChange(_state);
+      });
+    }
+
+    // Level 0 を初期化
+    _addSlot(CATEGORY_TREE, 0);
+
+    // ── 公開 API ──────────────────────────────────────────
+    return {
+      getState: function() { return _state; },
+
+      reset: function(silent) {
+        _trimFrom(1);
+        if (_slots.length > 0) _slots[0].sel.value = '';
+        _state = { id:'', name:'すべて', path:'' };
+        if (!silent) onChange(_state);
+      },
+
+      setValue: function(path) {
+        _trimFrom(1);
+        if (_slots.length > 0) _slots[0].sel.value = '';
+        _state = { id:'', name:'すべて', path:'' };
+        if (!path || path === 'すべて') return;
+
+        var parts = path.split(' > ').map(function(p){ return p.trim(); }).filter(Boolean);
+        var currentNodes = CATEGORY_TREE;
+
+        for (var depth = 0; depth < parts.length; depth++) {
+          var targetName = parts[depth];
+          if (!_slots[depth]) break;
+          var found = -1;
+          for (var i = 0; i < currentNodes.length; i++) {
+            if (currentNodes[i].name === targetName) { found = i; break; }
+          }
+          if (found < 0) break;
+          _slots[depth].sel.value = String(found);
+          var node = currentNodes[found];
+          if (depth < parts.length - 1 && node.children && node.children.length > 0) {
+            _addSlot(node.children, depth + 1);
+            currentNodes = node.children;
+          } else {
+            break;
+          }
+        }
+        _state = _buildState();
+      }
+    };
+  }
+
+  var _searchCatSelect = null;
+  var _filterCatSelect = null;
+
+  var consoleEl   = document.getElementById('console');
+  var statusDot   = document.getElementById('statusDot');
+  var statusText  = document.getElementById('statusText');
+  var runBtn      = document.getElementById('runBtn');
+  var stopBtn     = document.getElementById('stopBtn');
+  var resultsMeta = document.getElementById('resultsMeta');
+
+  var allItems      = [];
+  var filteredItems = [];
+  var currentSort   = { key:'default', dir:1 };
+  var totalPages    = 0;
+  var totalDetail   = 0;
+  var liveInterval  = null;
+  var _logVisible   = false;
+  var _errorLines   = [];
+
+  function toggleLog() {
+    _logVisible = !_logVisible;
+    document.getElementById('console').style.display = _logVisible ? 'block' : 'none';
+    document.getElementById('logToggleBtn').textContent = _logVisible ? 'ログを隠す ▲' : 'ログを表示 ▼';
+  }
+
+  // ── SPA event handlers ────────────────────────────────────
+  function onSpaLog(e) {
+    if (!e.detail || e.detail.taskType !== 'research') return;
+    log(e.detail.line);
+  }
+  function onSpaDone(e) {
+    if (!e.detail || e.detail.taskType !== 'research') return;
+    stopLivePolling();
+    setDone(e.detail.ok);
+    if (e.detail.ok) setTimeout(loadResults, 800);
+  }
+  document.addEventListener('spa:log',  onSpaLog);
+  document.addEventListener('spa:done', onSpaDone);
+
+  window.__pageCleanup = function() {
+    stopLivePolling();
+    document.removeEventListener('spa:log',  onSpaLog);
+    document.removeEventListener('spa:done', onSpaDone);
+  };
+
+  // ── 商品状態チップ ──────────────────────────────────────────
+  document.querySelectorAll('#conditionRow .cond-chip input').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      cb.closest('.cond-chip').classList.toggle('is-checked', cb.checked);
+    });
+  });
+
+  // ── 進捗管理 ──────────────────────────────────────────────
   function resetProgress() {
     document.getElementById('progressFill').style.width = '0%';
     document.getElementById('progressFill').className   = 'progress-bar-fill';
     document.getElementById('progressStep').textContent = '準備中…';
-    const pctEl = document.getElementById('progressPct');
+    var pctEl = document.getElementById('progressPct');
     pctEl.textContent = '0%';
     pctEl.className   = 'progress-pct-lbl';
     document.getElementById('progressCount').style.display = 'none';
     document.getElementById('progressWidget').style.display = 'block';
+    document.getElementById('errorBanner').style.display = 'none';
+    document.getElementById('errorBannerText').textContent = '';
+    _errorLines = [];
     totalPages = 0;
   }
 
   function setProgressBar(pct, stepText, countText) {
-    const fill  = document.getElementById('progressFill');
-    const step  = document.getElementById('progressStep');
-    const pctEl = document.getElementById('progressPct');
-    const count = document.getElementById('progressCount');
-    const p = Math.max(0, Math.min(100, pct));
+    var fill  = document.getElementById('progressFill');
+    var step  = document.getElementById('progressStep');
+    var pctEl = document.getElementById('progressPct');
+    var count = document.getElementById('progressCount');
+    var p = Math.max(0, Math.min(100, pct));
     fill.style.width  = p + '%';
     step.textContent  = stepText;
     pctEl.textContent = p + '%';
-    if (pct >= 100) {
-      fill.classList.add('is-done');
-      pctEl.classList.add('is-done');
-    } else if (pct < 0) {
-      fill.classList.add('is-error');
-      pctEl.classList.add('is-error');
-      pctEl.textContent = '—';
-    }
-    if (typeof countText === 'string') {
-      count.style.display = 'block';
-      count.textContent   = countText;
-    } else if (countText === null) {
-      count.style.display = 'none';
-    }
+    if (pct >= 100) { fill.classList.add('is-done'); pctEl.classList.add('is-done'); }
+    else if (pct < 0) { fill.classList.add('is-error'); pctEl.classList.add('is-error'); pctEl.textContent = '—'; }
+    if (typeof countText === 'string') { count.style.display = 'block'; count.textContent = countText; }
+    else if (countText === null) { count.style.display = 'none'; }
   }
 
-  // ログ1行からリサーチの進捗情報を解析
   function parseProgress(line) {
-    if (/Chrome起動 → 開始|Chrome接続確認/.test(line))
-      return { pct: 5,  step: 'Chrome 起動中…' };
-    if (line.includes('Chromeプロセス開始'))
-      return { pct: 8,  step: 'Chrome プロセス起動完了' };
-    if (line.includes('Chrome DevTools接続準備') && line.includes('完了'))
-      return { pct: 12, step: 'DevTools 接続完了' };
-    if (line.includes('タブID取得') && !line.includes('見つかりません'))
-      return { pct: 15, step: 'ブラウザタブ 接続完了' };
-    if (line.includes('メルカリTOP') && line.includes('200 OK'))
-      return { pct: 22, step: 'メルカリ TOP 読み込み完了' };
-
-    // ページ N/M スクレイピング開始（22〜55%）
-    const startM = line.match(/ページ (\d+)\/(\d+)/);
+    if (/Chrome起動 → 開始|Chrome接続確認/.test(line))  return { pct:5,  step:'Chrome 起動中…' };
+    if (line.includes('Chromeプロセス開始'))              return { pct:8,  step:'Chrome プロセス起動完了' };
+    if (line.includes('Chrome DevTools接続準備') && line.includes('完了')) return { pct:12, step:'DevTools 接続完了' };
+    if (line.includes('タブID取得') && !line.includes('見つかりません')) return { pct:15, step:'ブラウザタブ 接続完了' };
+    if (line.includes('メルカリTOP') && line.includes('200 OK')) return { pct:22, step:'メルカリ TOP 読み込み完了' };
+    var startM = line.match(/ページ (\d+)\/(\d+)/);
     if (startM) {
-      const cur   = parseInt(startM[1]);
-      const total = parseInt(startM[2]);
+      var cur = parseInt(startM[1]), total = parseInt(startM[2]);
       if (total > 0) totalPages = total;
-      const pct = 22 + Math.round((cur - 1) / (totalPages || 1) * 33);
-      return {
-        pct,
-        step:  `ページ ${cur} / ${totalPages} スクレイピング中`,
-        count: `▶ ${cur} / ${totalPages} ページ処理中`
-      };
+      var pct = 22 + Math.round((cur-1)/(totalPages||1)*33);
+      return { pct:pct, step:'ページ '+cur+' / '+totalPages+' スクレイピング中', count:'▶ '+cur+' / '+totalPages+' ページ処理中' };
     }
-
-    // ページ N 取得完了
-    const doneM = line.match(/ページ (\d+) 取得完了 → (\d+)件/);
+    var doneM = line.match(/ページ (\d+) 取得完了 → (\d+)件/);
     if (doneM) {
-      const cur   = parseInt(doneM[1]);
-      const total = totalPages || cur;
-      const pct   = 22 + Math.round(cur / total * 33);
-      return {
-        pct,
-        step:  `ページ ${cur} 完了 (${doneM[2]}件取得)`,
-        count: `▶ ${cur} / ${total} ページ完了`
-      };
+      var cur2 = parseInt(doneM[1]), total2 = totalPages || cur2;
+      var pct2 = 22 + Math.round(cur2/total2*33);
+      return { pct:pct2, step:'ページ '+cur2+' 完了 ('+doneM[2]+'件取得)', count:'▶ '+cur2+' / '+total2+' ページ完了' };
     }
-
-    // 詳細取得フェーズ（55〜88%）
     if (line.includes('詳細取得') && line.includes('開始')) {
-      const m = line.match(/(\d+)件/);
+      var m = line.match(/(\d+)件/);
       if (m) totalDetail = parseInt(m[1]);
-      return { pct: 55, step: `商品詳細確認 開始 (${totalDetail || '?'}件)`, count: `▶ 0 / ${totalDetail || '?'} 件確認中` };
+      return { pct:55, step:'商品詳細確認 開始 ('+(totalDetail||'?')+'件)', count:'▶ 0 / '+(totalDetail||'?')+' 件確認中' };
     }
-    const detailM = line.match(/詳細取得.*?\((\d+)\/(\d+)\)/);
+    var detailM = line.match(/詳細取得.*?\((\d+)\/(\d+)\)/);
     if (detailM) {
-      const cur   = parseInt(detailM[1]);
-      const total = parseInt(detailM[2]);
-      if (total > 0) totalDetail = total;
-      const pct = 55 + Math.round(cur / (totalDetail || 1) * 33);
-      return {
-        pct,
-        step:  `商品詳細確認中 (${cur} / ${totalDetail})`,
-        count: `▶ ${cur} / ${totalDetail} 件確認中`
-      };
+      var dc = parseInt(detailM[1]), dt = parseInt(detailM[2]);
+      if (dt > 0) totalDetail = dt;
+      var dpct = 55 + Math.round(dc/(totalDetail||1)*33);
+      return { pct:dpct, step:'商品詳細確認中 ('+dc+' / '+totalDetail+')', count:'▶ '+dc+' / '+totalDetail+' 件確認中' };
     }
-    if (line.includes('詳細取得') && line.includes('完了'))
-      return { pct: 88, step: '商品詳細確認 完了', count: null };
-
-    if (line.includes('CSV保存完了'))
-      return { pct: 93, step: 'CSV ファイル保存完了', count: null };
-    if (line.includes('リサーチ完了') || line.includes('全処理完了') || line.includes('[終了] 正常終了'))
-      return { pct: 100, step: 'リサーチ完了', count: null };
-    if (/\[終了\] エラー/.test(line))
-      return { pct: -1, step: 'エラーが発生しました', count: null };
-
+    if (line.includes('詳細取得') && line.includes('完了')) return { pct:88, step:'商品詳細確認 完了', count:null };
+    if (line.includes('CSV保存完了')) return { pct:93, step:'CSV ファイル保存完了', count:null };
+    if (line.includes('リサーチ完了') || line.includes('全処理完了') || line.includes('[終了] 正常終了')) return { pct:100, step:'リサーチ完了', count:null };
+    if (/\[終了\] エラー/.test(line)) return { pct:-1, step:'エラーが発生しました', count:null };
     return null;
   }
 
   // ── State ────────────────────────────────────────────────
   function setRunning(running) {
-    runBtn.disabled  = running;
+    runBtn.disabled = running;
     stopBtn.style.display = running ? 'inline-block' : 'none';
     statusDot.className  = 'status-dot' + (running ? ' running' : '');
     statusText.textContent = running ? 'リサーチ実行中...' : '待機中';
   }
-
   function setDone(ok) {
     statusDot.className = 'status-dot ' + (ok ? 'done' : 'error');
     statusText.textContent = ok ? '完了' : 'エラー';
     runBtn.disabled = false;
     stopBtn.style.display = 'none';
-    setProgressBar(ok ? 100 : -1,
-      ok ? 'リサーチ完了' : 'エラーが発生しました', null);
+    setProgressBar(ok ? 100 : -1, ok ? 'リサーチ完了' : 'エラーが発生しました', null);
+    if (!ok && _errorLines.length > 0) {
+      document.getElementById('errorBannerText').textContent = _errorLines.join('\n');
+      document.getElementById('errorBanner').style.display = 'block';
+      // エラー時はコンソールを自動展開する
+      if (!_logVisible) toggleLog();
+    }
   }
-
-  // ── Console ──────────────────────────────────────────────
   function log(msg) {
-    // プログレスバー更新
-    const prog = parseProgress(msg);
-    if (prog) setProgressBar(prog.pct, prog.step, prog.count);
-
-    // ログ表示
-    const line = document.createElement('div');
+    var prog = parseProgress(msg);
+    if (prog) setProgressBar(prog.pct, prog.step, prog.count !== undefined ? prog.count : undefined);
+    var isError = msg.startsWith('ERROR') || msg.startsWith('flag ') || /\[終了\] エラー/.test(msg) || msg.includes('失敗');
+    if (isError) _errorLines.push(msg);
+    var line = document.createElement('div');
     line.textContent = msg;
-    if (msg.startsWith('[終了]')) line.style.color = '#22c55e';
-    if (msg.startsWith('ERROR') || msg.includes('失敗')) line.style.color = '#ef4444';
+    if (/^\[終了\] 正常終了/.test(msg)) line.style.color = '#22c55e';
+    if (isError) line.style.color = '#ef4444';
     consoleEl.appendChild(line);
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
 
+  // ── Live Polling ─────────────────────────────────────────
+  function startLivePolling() {
+    stopLivePolling();
+    liveInterval = setInterval(function() {
+      fetch('/research-live')
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (!data.items || data.items.length === 0) return;
+          allItems = data.items;
+          document.getElementById('filterBar').style.display = 'flex';
+          updateAnalysis(allItems);
+          applyFilter();
+        })
+        .catch(function(){});
+    }, 2000);
+  }
+  function stopLivePolling() {
+    if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+  }
+
   // ── Run / Stop ───────────────────────────────────────────
   async function runResearch() {
-    const categoryId   = document.getElementById('categorySelect').value;
-    const categoryName = document.getElementById('categorySelect').selectedOptions[0].text;
-    const pages        = parseInt(document.getElementById('pagesInput').value) || 5;
+    var catState     = _searchCatSelect ? _searchCatSelect.getState() : { id:'', path:'', name:'すべて' };
+    var categoryId   = catState.id;
+    var categoryName = catState.path || catState.name || 'すべて';
+    var pages        = parseInt(document.getElementById('pagesInput').value) || 5;
+    var keyword      = document.getElementById('keywordInput').value.trim();
+    var priceMin     = parseInt(document.getElementById('priceMinInput').value) || 0;
+    var priceMax     = parseInt(document.getElementById('priceMaxInput').value) || 0;
+    var conditions   = Array.from(document.querySelectorAll('#conditionRow input[type="checkbox"]:checked')).map(function(cb){ return cb.value; });
+    var shippingPayer = document.getElementById('shippingPayerSelect').value;
 
     consoleEl.textContent = '';
     resetProgress();
     setRunning(true);
-
-    if (eventSource) { eventSource.close(); eventSource = null; }
-    eventSource = new EventSource('/events');
-    eventSource.onmessage = e => {
-      if (e.data === '__DONE__') {
-        eventSource.close(); eventSource = null;
-        setDone(true);
-        setTimeout(loadResults, 500);
-        return;
-      }
-      log(e.data);
-    };
-    eventSource.onerror = () => { setDone(false); };
+    if (window.SPA) window.SPA.clearLog('research');
+    startLivePolling();
+    if (window.SPA) window.SPA.connect('research');
 
     try {
-      const res = await fetch('/run-research', {
+      var res = await fetch('/run-research', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId, categoryName, pages }),
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ categoryId, categoryName, pages, keyword, priceMin, priceMax, conditions, shippingPayer }),
       });
-      const data = await res.json();
+      var data = await res.json();
       if (data.error) {
         log('ERROR: ' + data.error);
         setDone(false);
-        if (eventSource) { eventSource.close(); eventSource = null; }
+        stopLivePolling();
       }
     } catch (err) {
       log('ERROR: ' + err.message);
       setDone(false);
+      stopLivePolling();
     }
   }
 
   async function stopResearch() {
-    await fetch('/stop', { method: 'POST' });
+    await fetch('/stop', { method:'POST' });
   }
+
+  // ── sold-in helpers ───────────────────────────────────────
+  function soldInMinutes(soldIn) {
+    if (!soldIn) return null;
+    var m = soldIn.match(/(\d+)(分|時間|日|週間|ヶ月|か月)/);
+    if (!m) return null;
+    var n = parseInt(m[1]);
+    switch (m[2]) {
+      case '分':   return n;
+      case '時間': return n * 60;
+      case '日':   return n * 1440;
+      case '週間': return n * 10080;
+      case 'ヶ月': case 'か月': return n * 43200;
+    }
+    return null;
+  }
+
+  // ── 傾向分析 ─────────────────────────────────────────────
+  function updateAnalysis(items) {
+    var section = document.getElementById('analysisSection');
+    if (!items || items.length === 0) { section.classList.remove('visible'); return; }
+    section.classList.add('visible');
+
+    var timeBuckets = [
+      { key:'〜30分',      color:'green',  cnt:0, test:function(m){ return m!==null && m<=30; } },
+      { key:'30分〜3時間', color:'green',  cnt:0, test:function(m){ return m!==null && m>30 && m<=180; } },
+      { key:'3時間〜1日',  color:'yellow', cnt:0, test:function(m){ return m!==null && m>180 && m<=1440; } },
+      { key:'1日〜3日',    color:'orange', cnt:0, test:function(m){ return m!==null && m>1440 && m<=4320; } },
+      { key:'3日以上',     color:'red',    cnt:0, test:function(m){ return m!==null && m>4320; } },
+      { key:'不明',        color:'',       cnt:0, test:function(m){ return m===null; } },
+    ];
+    var priceRangeDefs = [
+      { key:'〜1,000円',        min:0,     max:999   },
+      { key:'1,000〜3,000円',   min:1000,  max:2999  },
+      { key:'3,000〜5,000円',   min:3000,  max:4999  },
+      { key:'5,000〜10,000円',  min:5000,  max:9999  },
+      { key:'10,000〜30,000円', min:10000, max:29999 },
+      { key:'30,000円〜',       min:30000, max:Infinity },
+    ];
+    var priceBuckets = priceRangeDefs.map(function(d){ return Object.assign({}, d, {cnt:0, fast:0}); });
+    var totalPrice = 0, priceCount = 0, fastCnt = 0;
+
+    items.forEach(function(item) {
+      var mins = soldInMinutes(item.soldIn);
+      timeBuckets.forEach(function(b){ if (b.test(mins)) b.cnt++; });
+      if (mins !== null && mins <= 60) fastCnt++;
+      if (item.price > 0) {
+        totalPrice += item.price; priceCount++;
+        priceBuckets.forEach(function(b){
+          if (item.price >= b.min && item.price <= b.max) {
+            b.cnt++;
+            if (mins !== null && mins <= 60) b.fast++;
+          }
+        });
+      }
+    });
+
+    document.getElementById('statTotal').textContent = items.length.toLocaleString() + '件';
+    var fastPct = Math.round(fastCnt / items.length * 100);
+    document.getElementById('statMinPct').textContent = fastPct + '%';
+    document.getElementById('statMinCnt').textContent = fastCnt + '件が1時間以内に売れた';
+    var avgPrice = priceCount > 0 ? Math.round(totalPrice / priceCount) : 0;
+    document.getElementById('statAvgPrice').textContent = avgPrice > 0 ? '¥' + avgPrice.toLocaleString() : '—';
+    var pricesWithData = items.filter(function(i){ return i.price > 0; }).map(function(i){ return i.price; });
+    if (pricesWithData.length > 0) {
+      document.getElementById('statPriceRange').textContent = '¥' + Math.min.apply(null,pricesWithData).toLocaleString() + ' 〜 ¥' + Math.max.apply(null,pricesWithData).toLocaleString();
+    }
+
+    var hotBucket = null, maxRate = 0;
+    priceBuckets.forEach(function(b){
+      if (b.cnt >= 3) { var r = b.fast/b.cnt; if (r > maxRate) { maxRate = r; hotBucket = b; } }
+    });
+    if (hotBucket) {
+      document.getElementById('statHotRange').textContent  = hotBucket.key;
+      document.getElementById('statHotRateSub').textContent = hotBucket.fast+'/'+hotBucket.cnt+'件が1時間以内に売れた';
+    } else {
+      document.getElementById('statHotRange').textContent  = '—';
+      document.getElementById('statHotRateSub').textContent = '';
+    }
+
+    var maxT = Math.max.apply(null, timeBuckets.map(function(b){ return b.cnt; }).concat([1]));
+    document.getElementById('soldTimeChart').innerHTML = timeBuckets.map(function(b){
+      return '<div class="bar-row"><div class="bar-lbl">'+escHtml(b.key)+'</div><div class="bar-track"><div class="bar-fill '+b.color+'" style="width:'+Math.round(b.cnt/maxT*100)+'%"></div></div><div class="bar-cnt">'+b.cnt+'</div></div>';
+    }).join('');
+
+    var maxP = Math.max.apply(null, priceBuckets.map(function(b){ return b.cnt; }).concat([1]));
+    document.getElementById('priceChart').innerHTML = priceBuckets.map(function(b){
+      return '<div class="bar-row"><div class="bar-lbl">'+escHtml(b.key)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(b.cnt/maxP*100)+'%"></div></div><div class="bar-cnt">'+b.cnt+'</div></div>';
+    }).join('');
+
+    document.getElementById('cediInsight').innerHTML = priceBuckets.filter(function(b){ return b.cnt>0; }).map(function(b){
+      var rate = b.cnt > 0 ? Math.round(b.fast/b.cnt*100) : 0;
+      var cls  = rate >= 50 ? 'hot' : rate >= 25 ? 'warm' : '';
+      return '<div class="insight-chip '+cls+'"><div class="insight-range">'+escHtml(b.key)+'</div><div class="insight-rate">'+rate+'%</div><div class="insight-desc">'+b.fast+'/'+b.cnt+'件が1時間以内</div></div>';
+    }).join('') || '<div style="color:var(--muted);font-size:13px">価格データが不足しています</div>';
+  }
+
+  // ── Filter / Sort ─────────────────────────────────────────
+  function applyFilter() {
+    var text     = document.getElementById('filterText').value.trim().toLowerCase();
+    var priceMin = parseInt(document.getElementById('filterPriceMin').value) || 0;
+    var priceMax = parseInt(document.getElementById('filterPriceMax').value) || 0;
+    var soldInF  = document.getElementById('filterSoldIn').value;
+    var catState = _filterCatSelect ? _filterCatSelect.getState() : { path:'' };
+    var catF     = catState.path;
+    var sortKey  = document.getElementById('sortBy').value;
+
+    var items = allItems.filter(function(item) {
+      if (text) {
+        var nameMatch = item.name.toLowerCase().includes(text);
+        var catMatch  = (item.category || '').toLowerCase().includes(text);
+        if (!nameMatch && !catMatch) return false;
+      }
+      if (priceMin > 0 && item.price < priceMin) return false;
+      if (priceMax > 0 && item.price > priceMax) return false;
+      if (soldInF) {
+        var mins = soldInMinutes(item.soldIn);
+        if      (soldInF==='min'  && (mins===null || mins>60))   return false;
+        else if (soldInF==='hour' && (mins===null || mins>360))  return false;
+        else if (soldInF==='day3' && (mins===null || mins>4320)) return false;
+        else if (soldInF==='none' && mins!==null)                return false;
+      }
+      if (catF) {
+        var cat = item.category || '';
+        // カテゴリーパス先頭（メルカリの大カテゴリー）で一致判定
+        if (!cat.startsWith(catF)) return false;
+      }
+      return true;
+    });
+
+    if (sortKey !== 'default') {
+      items = items.slice().sort(function(a, b) {
+        if (sortKey==='price_asc')  return (a.price||0)-(b.price||0);
+        if (sortKey==='price_desc') return (b.price||0)-(a.price||0);
+        var ma = soldInMinutes(a.soldIn), mb = soldInMinutes(b.soldIn);
+        if (sortKey==='sold_asc') {
+          if (ma===null && mb===null) return 0; if (ma===null) return 1; if (mb===null) return -1; return ma-mb;
+        }
+        if (sortKey==='sold_desc') {
+          if (ma===null && mb===null) return 0; if (ma===null) return 1; if (mb===null) return -1; return mb-ma;
+        }
+        return 0;
+      });
+    }
+
+    document.querySelectorAll('th.sortable').forEach(function(th){ th.classList.remove('asc','desc'); });
+    if (sortKey==='price_asc')  { var el=document.querySelector('[data-sort="price"]');  if(el) el.classList.add('asc'); }
+    if (sortKey==='price_desc') { var el=document.querySelector('[data-sort="price"]');  if(el) el.classList.add('desc'); }
+    if (sortKey==='sold_asc')   { var el=document.querySelector('[data-sort="soldin"]'); if(el) el.classList.add('asc'); }
+    if (sortKey==='sold_desc')  { var el=document.querySelector('[data-sort="soldin"]'); if(el) el.classList.add('desc'); }
+
+    filteredItems = items;
+    resultsMeta.textContent = items.length < allItems.length
+      ? items.length+'件 / 全'+allItems.length+'件'
+      : allItems.length+'件';
+    renderTable(items);
+  }
+
+  function toggleSort(key) {
+    var sel = document.getElementById('sortBy');
+    var cur = sel.value;
+    if      (key==='price'  && cur!=='price_asc') sel.value = 'price_asc';
+    else if (key==='price'  && cur==='price_asc') sel.value = 'price_desc';
+    else if (key==='soldin' && cur!=='sold_asc')  sel.value = 'sold_asc';
+    else if (key==='soldin' && cur==='sold_asc')  sel.value = 'sold_desc';
+    else if (key==='name')                        sel.value = 'default';
+    applyFilter();
+  }
+
+  function resetFilter() {
+    document.getElementById('filterText').value     = '';
+    document.getElementById('filterPriceMin').value = '';
+    document.getElementById('filterPriceMax').value = '';
+    document.getElementById('filterSoldIn').value   = '';
+    if (_filterCatSelect) _filterCatSelect.reset(true);
+    document.getElementById('sortBy').value         = 'default';
+    applyFilter();
+  }
+
+  // ── カテゴリー階層パス描画 ────────────────────────────────────────
+  // "ファッション > メンズ > スニーカー" を階層ごとに分けて表示
+  function renderCategoryPath(cat) {
+    if (!cat) return '<span class="sold-in-none">—</span>';
+    var parts = cat.split(' > ').map(function(p){ return p.trim(); }).filter(Boolean);
+    if (parts.length === 0) return '<span class="sold-in-none">—</span>';
+    if (parts.length === 1) {
+      return '<div class="cat-path"><div class="cat-row"><span class="cat-leaf">'+escHtml(parts[0])+'</span></div></div>';
+    }
+    var rows = parts.map(function(p, i) {
+      var isLast = i === parts.length - 1;
+      var indent = i === 0 ? '' : '<span class="cat-indent">'+('└ ')+'</span>';
+      var style  = isLast ? 'margin-left:'+(i*10)+'px' : 'margin-left:'+(i*10)+'px';
+      var inner  = isLast
+        ? '<span class="cat-leaf">'+escHtml(p)+'</span>'
+        : '<span class="cat-seg">'+escHtml(p)+'</span>';
+      return '<div class="cat-row" style="'+style+'">'+indent+inner+'</div>';
+    });
+    return '<div class="cat-path">'+rows.join('')+'</div>';
+  }
+
 
   // ── Load results ─────────────────────────────────────────
   async function loadResults() {
     try {
-      const res  = await fetch('/research-data');
-      const data = await res.json();
+      var res  = await fetch('/research-data');
+      var data = await res.json();
       allItems = data.items || [];
-      const fname = data.file || '';
+      var fname = data.file || '';
       if (allItems.length === 0) {
         resultsMeta.textContent = '';
+        document.getElementById('filterBar').style.display = 'none';
+        document.getElementById('analysisSection').classList.remove('visible');
         renderTable([]);
         return;
       }
-      resultsMeta.textContent = `${fname}  /  ${allItems.length}件`;
-      renderTable(allItems);
+      resultsMeta.textContent = fname + '  /  ' + allItems.length + '件';
+      document.getElementById('filterBar').style.display = 'flex';
+      updateAnalysis(allItems);
+      applyFilter();
     } catch (err) {
       resultsMeta.textContent = 'エラー: ' + err.message;
     }
   }
 
-  // 売れた時間バッジを返します。
-  // 分 → 緑、時間 → 黄、3日以内 → オレンジ、それ以上 → グレー
   function soldInBadge(soldIn) {
     if (!soldIn) return '<span class="sold-in-none">—</span>';
-    const cls = soldIn.includes('分')   ? 'sold-in-min'  :
-                soldIn.includes('時間') ? 'sold-in-hour' :
-                (soldIn.includes('日') && parseInt(soldIn) <= 3) ? 'sold-in-day-fast' :
-                'sold-in-day';
-    return `<span class="sold-in ${cls}">${escHtml(soldIn)}</span>`;
+    var cls = soldIn.includes('分')   ? 'sold-in-min'  :
+              soldIn.includes('時間') ? 'sold-in-hour' :
+              (soldIn.includes('日') && parseInt(soldIn) <= 3) ? 'sold-in-day-fast' :
+              'sold-in-day';
+    return '<span class="sold-in '+cls+'">'+escHtml(soldIn)+'</span>';
   }
 
   function renderTable(items) {
-    const tbody = document.getElementById('resultsTbody');
+    var tbody = document.getElementById('resultsTbody');
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="6">
-        <div class="placeholder">
-          <span class="ph-icon">📭</span>
-          結果がありません。リサーチを実行してください。
-        </div>
-      </td></tr>`;
+      tbody.innerHTML = '<tr><td colspan="7"><div class="placeholder"><span class="ph-icon">📭</span>結果がありません。リサーチを実行するか、フィルター条件を変更してください。</div></td></tr>';
       return;
     }
-    tbody.innerHTML = items.map((item, i) => {
-      const price = item.price > 0 ? `¥${item.price.toLocaleString()}` : '—';
-      const url   = `https://jp.mercari.com/item/${escHtml(item.id)}`;
-      const thumb = item.imagePath
-        ? `<img class="thumb" src="${escHtml(item.imagePath)}" alt="${escHtml(item.name)}" loading="lazy">`
-        : `<div class="no-thumb">🛍️</div>`;
-      return `<tr>
-        <td class="td-rank">${i + 1}</td>
-        <td class="td-thumb">${thumb}</td>
-        <td class="td-name" title="${escHtml(item.name)}">${escHtml(item.name)}</td>
-        <td class="td-price">${price}</td>
-        <td class="td-soldin">${soldInBadge(item.soldIn)}</td>
-        <td><a class="item-link" href="${url}" target="_blank" rel="noopener">開く ↗</a></td>
-      </tr>`;
+    tbody.innerHTML = items.map(function(item, i) {
+      var price = item.price > 0 ? '¥'+item.price.toLocaleString() : '—';
+      var url   = 'https://jp.mercari.com/item/'+escHtml(item.id);
+      var thumb = item.imagePath
+        ? '<img class="thumb" src="'+escHtml(item.imagePath)+'" alt="'+escHtml(item.name)+'" loading="lazy">'
+        : '<div class="no-thumb">🛍️</div>';
+      var cat = renderCategoryPath(item.category);
+      return '<tr><td class="td-rank">'+(i+1)+'</td><td class="td-thumb">'+thumb+'</td><td class="td-name" title="'+escHtml(item.name)+'">'+escHtml(item.name)+'</td><td class="td-price">'+price+'</td><td class="td-soldin">'+soldInBadge(item.soldIn)+'</td><td class="td-category">'+cat+'</td><td><a class="item-link" href="'+url+'" target="_blank" rel="noopener">開く ↗</a></td></tr>';
     }).join('');
   }
 
   function escHtml(s) {
-    return String(s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── Init ──────────────────────────────────────────────────
-  loadResults();
+  // ── 前回リサーチ条件の復元 ──────────────────────────────────
+  var _lastConditions = null;
+
+  function restoreLastConditions() {
+    if (!_lastConditions) return;
+    var c = _lastConditions;
+    if (_searchCatSelect) _searchCatSelect.setValue(c.categoryName || c.categoryId || '');
+    document.getElementById('pagesInput').value        = c.pages         || 5;
+    document.getElementById('keywordInput').value      = c.keyword       || '';
+    document.getElementById('priceMinInput').value     = c.priceMin > 0  ? c.priceMin : '';
+    document.getElementById('priceMaxInput').value     = c.priceMax > 0  ? c.priceMax : '';
+    document.getElementById('shippingPayerSelect').value = c.shippingPayer || '';
+    var checked = new Set(c.conditions || []);
+    document.querySelectorAll('#conditionRow .cond-chip input').forEach(function(cb) {
+      cb.checked = checked.has(cb.value);
+      cb.closest('.cond-chip').classList.toggle('is-checked', cb.checked);
+    });
+  }
+
+  function loadLastConditions() {
+    fetch('/api/config')
+      .then(function(r){ return r.json(); })
+      .then(function(cfg) {
+        if (!cfg.researchConditions) return;
+        _lastConditions = cfg.researchConditions;
+        document.getElementById('restoreBtn').style.display = 'inline-block';
+      })
+      .catch(function(){});
+  }
+
+  // ── Init ─────────────────────────────────────────────────
+  (function() {
+    // カスケードセレクト初期化
+    var searchCatEl = document.getElementById('searchCatContainer');
+    if (searchCatEl) {
+      _searchCatSelect = CascadingSelect(searchCatEl, function(state) {
+        // 選択時はリサーチ実行時に参照するのみ
+      });
+    }
+    var filterCatEl = document.getElementById('filterCatContainer');
+    if (filterCatEl) {
+      _filterCatSelect = CascadingSelect(filterCatEl, function(state) {
+        applyFilter();
+      });
+    }
+
+    loadLastConditions();
+    if (window.SPA) {
+      var savedLines = window.SPA.getLines('research');
+      if (savedLines.length > 0) {
+        document.getElementById('progressWidget').style.display = 'block';
+        savedLines.forEach(function(l){ log(l); });
+        if (window.SPA.isRunning('research')) {
+          setRunning(true);
+          startLivePolling();
+          return; // loadResults will be triggered by spa:done
+        } else {
+          var last = savedLines[savedLines.length - 1];
+          var ok = !!(last && (/\[終了\] 正常終了|リサーチ完了/.test(last)));
+          setDone(ok);
+          if (ok) { loadResults(); return; }
+        }
+      }
+    }
+    loadResults();
+  })();
 </script>
 
-<!-- ─── Navigation Drawer ──────────────────────────────── -->
+</div><!-- /#app-content -->
+
+<!-- ═══════════════════════════════════ NAV DRAWER ════════════════════════════════════ -->
 <button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
   <span class="ham-line"></span>
   <span class="ham-line"></span>
@@ -787,34 +1330,199 @@
     </div>
   </div>
   <div class="nav-links">
-    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
-    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
-    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/"         data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>出品中商品一覧</a>
     <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
     <div class="nav-sep"></div>
     <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
   </div>
 </nav>
+
+<!-- ═══════════════════════════════════ SPA SCRIPT ════════════════════════════════════ -->
 <script>
-  (function() {
-    const p = location.pathname;
-    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
-      if (el.dataset.navpath === p) el.classList.add('is-active');
-    });
-  })();
-  function navToggle() {
-    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+(function(){
+  // ── Nav functions (always define, safe to call from onclick) ──
+  window.navToggle = function() {
+    var open = document.getElementById('navDrawer').classList.toggle('is-open');
     document.getElementById('hamBtn').classList.toggle('is-open', open);
     document.getElementById('navBackdrop').classList.toggle('is-open', open);
-    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
-  }
-  function navClose() {
+    document.getElementById('navDrawer').setAttribute('aria-hidden', String(!open));
+  };
+  window.navClose = function() {
     document.getElementById('navDrawer').classList.remove('is-open');
     document.getElementById('hamBtn').classList.remove('is-open');
     document.getElementById('navBackdrop').classList.remove('is-open');
     document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  };
+
+  // Active nav link
+  (function(){
+    var p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){
+      el.classList.toggle('is-active', el.dataset.navpath === p);
+    });
+  })();
+
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') navClose(); });
+
+  // ── SPA init (once per session) ───────────────────────────
+  if (window.__SPA_INITIALIZED__) return;
+  window.__SPA_INITIALIZED__ = true;
+
+  // ── Global EventSource manager ────────────────────────────
+  window.SPA = {
+    _esMap: {},
+    _logs: { research:[], discount:[], csv:[] },
+    _runningSet: new Set(),
+
+    connect: function(taskType) {
+      var endpoint = taskType === 'research' ? '/events/research' : '/events';
+      this._runningSet.add(taskType);
+      this._logs[taskType] = [];
+      if (this._esMap[taskType]) { this._esMap[taskType].close(); delete this._esMap[taskType]; }
+      var self = this;
+      var es = new EventSource(endpoint);
+      this._esMap[taskType] = es;
+      es.onmessage = function(e) {
+        if (e.data === '__DONE__') {
+          self._runningSet.delete(taskType);
+          document.dispatchEvent(new CustomEvent('spa:done', {detail:{taskType:taskType, ok:true}}));
+          es.close(); delete self._esMap[taskType];
+          return;
+        }
+        self._logs[taskType].push(e.data);
+        document.dispatchEvent(new CustomEvent('spa:log', {detail:{taskType:taskType, line:e.data}}));
+      };
+      es.onerror = function() {
+        self._runningSet.delete(taskType);
+        document.dispatchEvent(new CustomEvent('spa:done', {detail:{taskType:taskType, ok:false}}));
+        es.close(); delete self._esMap[taskType];
+      };
+    },
+
+    isRunning:    function(t) { return this._runningSet.has(t); },
+    isAnyRunning: function()  { return this._runningSet.size > 0; },
+    getLines:     function(t) { return (this._logs[t] || []).slice(); },
+    clearLog:     function(t) { this._logs[t] = []; }
+  };
+
+  // ── SPA navigation ────────────────────────────────────────
+  document.addEventListener('click', function(e){
+    var link = e.target.closest('a[data-navpath]');
+    if (!link) return;
+    var href = link.getAttribute('href');
+    if (!href) return;
+    e.preventDefault();
+    if (href === location.pathname) { navClose(); return; }
+    _spaNavigate(href);
+  });
+
+  function _spaNavigate(href) {
+    if (typeof window.__spaIntercept === 'function' && window.__spaIntercept(href)) return;
+    fetch(href)
+      .then(function(r){ return r.text(); })
+      .then(function(html){
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var newContent = doc.getElementById('app-content');
+        var curContent = document.getElementById('app-content');
+        if (!newContent || !curContent) { location.href = href; return; }
+        if (typeof window.__pageCleanup === 'function') {
+          window.__pageCleanup();
+          window.__pageCleanup = null;
+        }
+        var newCss = Array.from(doc.head.querySelectorAll('style'))
+          .map(function(s){ return s.textContent; }).join('\n');
+        var pStyle = document.getElementById('page-style');
+        if (pStyle) { pStyle.textContent = newCss; }
+        else { var ns2=document.createElement('style'); ns2.id='page-style'; ns2.textContent=newCss; document.head.appendChild(ns2); }
+        curContent.replaceWith(newContent);
+        history.pushState({}, '', href);
+        document.title = doc.title;
+        document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){
+          el.classList.toggle('is-active', el.dataset.navpath === href);
+        });
+        newContent.querySelectorAll('script').forEach(function(s){
+          var ns = document.createElement('script');
+          ns.textContent = s.textContent;
+          document.head.appendChild(ns);
+          ns.remove();
+        });
+        navClose();
+      })
+      .catch(function(){ location.href = href; });
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
+
+  window.addEventListener('popstate', function(){ _spaNavigate(location.pathname); });
+
+  // ── Global status bar (created once) ─────────────────────
+  var barEl = document.createElement('div');
+  barEl.id = 'spa-status-bar';
+  barEl.innerHTML = '<div class="ssb-row"><span class="ssb-dot"></span><span class="ssb-label">—</span><span class="ssb-line">—</span><button class="ssb-close" onclick="document.getElementById(\'spa-status-bar\').classList.remove(\'is-visible\')">✕</button></div><div class="ssb-track"><div class="ssb-fill"></div></div>';
+  document.body.appendChild(barEl);
+  var ssbStyle = document.createElement('style');
+  ssbStyle.textContent = '#spa-status-bar{position:fixed;bottom:-90px;left:50%;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));background:#1a1d27;border:1px solid #2e3250;border-radius:12px;padding:12px 16px 10px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:1500;transition:bottom .3s cubic-bezier(.4,0,.2,1);pointer-events:none}#spa-status-bar.is-visible{bottom:16px;pointer-events:all}.ssb-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}.ssb-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;flex-shrink:0;animation:ssbPulse 1s infinite}#spa-status-bar.is-done .ssb-dot{background:#22c55e;animation:none}#spa-status-bar.is-error .ssb-dot{background:#ef4444;animation:none}@keyframes ssbPulse{0%,100%{opacity:1}50%{opacity:.3}}.ssb-label{font-size:12px;font-weight:700;color:#e2e8f0;flex-shrink:0}.ssb-line{font-size:11px;color:#64748b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SF Mono","Menlo",monospace}.ssb-close{background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0}.ssb-close:hover{color:#e2e8f0}.ssb-track{height:3px;background:#22263a;border-radius:999px;overflow:hidden}.ssb-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#818cf8)}#spa-status-bar.is-done .ssb-fill{background:#22c55e}#spa-status-bar.is-error .ssb-fill{background:#ef4444}#spa-status-bar:not(.is-done):not(.is-error) .ssb-fill{width:40%;animation:ssbSlide 1.5s ease-in-out infinite}#spa-status-bar.is-done .ssb-fill,#spa-status-bar.is-error .ssb-fill{width:100%;transition:width .3s;animation:none}@keyframes ssbSlide{0%{margin-left:-40%}100%{margin-left:100%}}';
+  document.head.appendChild(ssbStyle);
+  var _ssbLabels = {research:'売れ筋リサーチ中', discount:'値引き実行中', csv:'CSV更新中'};
+  var _ssbBar = document.getElementById('spa-status-bar');
+  document.addEventListener('spa:log', function(e) {
+    if (!e.detail || !_ssbBar) return;
+    _ssbBar.querySelector('.ssb-label').textContent = _ssbLabels[e.detail.taskType] || e.detail.taskType;
+    _ssbBar.querySelector('.ssb-line').textContent  = e.detail.line;
+    _ssbBar.classList.remove('is-done','is-error');
+    _ssbBar.classList.add('is-visible');
+  });
+  document.addEventListener('spa:done', function(e) {
+    if (!e.detail || !_ssbBar) return;
+    var label = _ssbLabels[e.detail.taskType] || e.detail.taskType;
+    var msg   = e.detail.ok ? '処理が完了しました' : 'エラーが発生しました';
+    _ssbBar.querySelector('.ssb-label').textContent = label;
+    _ssbBar.querySelector('.ssb-line').textContent  = msg;
+    _ssbBar.classList.remove('is-done','is-error');
+    _ssbBar.classList.add(e.detail.ok ? 'is-done' : 'is-error');
+    setTimeout(function(){ if(_ssbBar) _ssbBar.classList.remove('is-visible','is-done','is-error'); }, 4000);
+    _spaPlaySound(e.detail.ok);
+    _spaNotify(label, msg, e.detail.ok);
+  });
+  // ── 通知ユーティリティ ────────────────────────────────────
+  function _spaPlaySound(ok) {
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ok) {
+        [[660,0],[880,0.18]].forEach(function(p){
+          var o=ac.createOscillator(), g=ac.createGain();
+          o.connect(g); g.connect(ac.destination);
+          o.type='sine'; o.frequency.value=p[0];
+          g.gain.setValueAtTime(0.22, ac.currentTime+p[1]);
+          g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+p[1]+0.45);
+          o.start(ac.currentTime+p[1]); o.stop(ac.currentTime+p[1]+0.45);
+        });
+      } else {
+        var o=ac.createOscillator(), g=ac.createGain();
+        o.connect(g); g.connect(ac.destination);
+        o.type='sine'; o.frequency.value=320;
+        g.gain.setValueAtTime(0.25, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+0.55);
+        o.start(ac.currentTime); o.stop(ac.currentTime+0.55);
+      }
+    } catch(e){}
+  }
+  function _spaNotify(label, body, ok) {
+    if (!('Notification' in window)) return;
+    var title = label + (ok ? ' 完了 ✓' : ' エラー ✗');
+    if (Notification.permission === 'granted') {
+      new Notification(title, {body: body, silent: true});
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(function(p){
+        if (p === 'granted') new Notification(title, {body: body, silent: true});
+      });
+    }
+  }
+  // 起動時に通知許可をリクエスト（初回のみブラウザがプロンプト表示）
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+})();
 </script>
+
 </body>
 </html>

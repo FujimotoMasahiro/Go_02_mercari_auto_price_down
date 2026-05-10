@@ -3,415 +3,181 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>商品一覧 — メルカリ自動値引きツール</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+  <title>出品中商品一覧 — メルカリ自動値引きツール</title>
+  <style id="page-style">
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
     :root {
-      --bg:       #0f1117;
-      --surface:  #1a1d27;
-      --surface2: #22263a;
-      --border:   #2e3250;
-      --accent:   #ff6b35;
-      --green:    #22c55e;
-      --yellow:   #f59e0b;
-      --red:      #ef4444;
-      --blue:     #60a5fa;
-      --text:     #e2e8f0;
-      --muted:    #64748b;
-      --console:  #0a0c14;
-      --radius:   12px;
+      --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:#2e3250;
+      --accent:#ff6b35; --green:#22c55e; --yellow:#f59e0b; --red:#ef4444;
+      --blue:#60a5fa; --text:#e2e8f0; --muted:#64748b;
+      --console:#0a0c14; --radius:12px;
     }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
-                   "Noto Sans JP", sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 32px 16px 80px;
-    }
-
-    /* ── Header ─────────────────────────────── */
-    header {
-      width: 100%; max-width: 960px;
-      display: flex; align-items: center; gap: 14px;
-      margin-bottom: 36px;
-    }
-    .logo {
-      width: 44px; height: 44px;
-      background: linear-gradient(135deg, #059669, #047857);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-    }
-    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
-    header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
-
-    /* ── Card ────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      width: 100%; max-width: 960px;
-      margin-bottom: 20px;
-    }
-    .card-title {
-      font-size: 12px; font-weight: 600;
-      color: var(--muted); text-transform: uppercase;
-      letter-spacing: .08em; margin-bottom: 16px;
-    }
-
-    /* ── Action row ──────────────────────────── */
-    .action-row {
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    }
-    .action-meta {
-      display: flex; align-items: center; gap: 12px;
-      margin-left: auto; flex-wrap: wrap;
-    }
-
-    /* ボタン共通 */
-    .action-btn {
-      display: flex; align-items: center; gap: 8px;
-      padding: 12px 22px;
-      color: #fff; border: none; border-radius: var(--radius);
-      font-size: 15px; font-weight: 700; cursor: pointer;
-      transition: opacity .2s, transform .1s;
-      white-space: nowrap;
-    }
-    .action-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
-    .action-btn:active:not(:disabled) { transform: translateY(0); }
-    .action-btn:disabled {
-      background: var(--surface2) !important; color: var(--muted);
-      cursor: not-allowed; border: 1px solid var(--border);
-    }
-    .btn-csv     { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
-    .btn-run     { background: linear-gradient(135deg, var(--accent), #ff3c7a); }
-
-    .file-label {
-      font-size: 12px; color: var(--muted);
-      font-family: "SF Mono","Fira Code","Menlo",monospace;
-    }
-    .file-label span { color: var(--blue); }
-
-    /* ── Status badge ────────────────────────── */
-    .badge {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 14px; border-radius: 999px;
-      font-size: 13px; font-weight: 600; border: 1px solid;
-      white-space: nowrap;
-    }
-    .badge.idle { color: var(--green);  border-color: #16a34a44; background: #16a34a14; }
-    .badge.busy { color: var(--yellow); border-color: #d97706aa; background: #d9770614; }
-    .badge.done { color: var(--blue);   border-color: #3b82f644; background: #3b82f614; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-    .badge.busy .dot { animation: pulse 1s ease-in-out infinite; }
+    body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:32px 16px 80px; }
+    header { width:100%; max-width:1200px; display:flex; align-items:center; gap:14px; margin-bottom:20px; padding-right:56px; }
+    .logo { width:44px; height:44px; background:linear-gradient(135deg,#059669,#047857); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    header h1 { font-size:20px; font-weight:700; letter-spacing:-.3px; }
+    header p  { font-size:13px; color:var(--muted); margin-top:2px; }
+    /* ── Action card ── */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 24px; width:100%; max-width:1200px; margin-bottom:16px; }
+    .action-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .action-meta { display:flex; align-items:center; gap:12px; margin-left:auto; flex-wrap:wrap; }
+    .action-btn { display:flex; align-items:center; gap:8px; padding:10px 20px; color:#fff; border:none; border-radius:var(--radius); font-size:14px; font-weight:700; cursor:pointer; transition:opacity .2s,transform .1s; white-space:nowrap; }
+    .action-btn:hover:not(:disabled) { opacity:.9; transform:translateY(-1px); }
+    .action-btn:active:not(:disabled) { transform:translateY(0); }
+    .action-btn:disabled { background:var(--surface2) !important; color:var(--muted); cursor:not-allowed; border:1px solid var(--border); }
+    .btn-csv { background:linear-gradient(135deg,#2563eb,#1d4ed8); }
+    .btn-run { background:linear-gradient(135deg,var(--accent),#ff3c7a); }
+    .file-label { font-size:12px; color:var(--muted); font-family:"SF Mono","Fira Code","Menlo",monospace; }
+    .file-label span { color:var(--blue); }
+    .badge { display:flex; align-items:center; gap:8px; padding:5px 12px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid; white-space:nowrap; }
+    .badge.idle { color:var(--green);  border-color:#16a34a44; background:#16a34a14; }
+    .badge.busy { color:var(--yellow); border-color:#d97706aa; background:#d9770614; }
+    .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .badge.busy .dot { animation:pulse 1s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-
-    /* ── Progress console ────────────────────── */
-    .progress-wrap { margin-top: 16px; display: none; }
-    .progress-wrap.visible { display: block; }
-    #progressConsole {
-      background: var(--console); border: 1px solid var(--border);
-      border-radius: 8px; padding: 14px; height: 200px;
-      overflow-y: auto;
-      font-family: "SF Mono","Fira Code","Menlo",monospace;
-      font-size: 12px; line-height: 1.65;
-      white-space: pre-wrap; word-break: break-all; color: #a0aec0;
-    }
-    #progressConsole .ln-ok    { color: #68d391; }
-    #progressConsole .ln-err   { color: #fc8181; }
-    #progressConsole .ln-info  { color: #90cdf4; }
-    #progressConsole .ln-done  { color: #fbd38d; font-weight: 600; }
-    #progressConsole .ln-start { color: var(--accent); font-weight: 600; }
-
-    /* ── Table toolbar ───────────────────────── */
-    .table-toolbar {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 12px; flex-wrap: wrap;
-    }
-    .table-toolbar-label {
-      font-size: 12px; font-weight: 600;
-      color: var(--muted); text-transform: uppercase;
-      letter-spacing: .08em; margin-right: auto;
-    }
-    .ghost-btn {
-      font-size: 12px; color: var(--muted); background: none;
-      border: 1px solid var(--border); border-radius: 6px;
-      padding: 5px 12px; cursor: pointer;
-      transition: color .15s, border-color .15s;
-      white-space: nowrap;
-    }
-    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
-
-    /* ── Table ───────────────────────────────── */
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    table {
-      width: 100%; border-collapse: collapse;
-      font-size: 14px;
-    }
-    thead {
-      background: var(--surface2);
-      position: sticky; top: 0;
-    }
-    th {
-      padding: 12px 16px;
-      text-align: left; font-size: 11px; font-weight: 700;
-      color: var(--muted); text-transform: uppercase; letter-spacing: .07em;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-    th.right { text-align: right; }
-    th.center { text-align: center; }
-    td {
-      padding: 13px 16px;
-      border-bottom: 1px solid var(--border);
-      color: var(--text); line-height: 1.4;
-    }
-    td.price {
-      text-align: right; font-family: "SF Mono","Menlo",monospace;
-      font-weight: 600; color: var(--yellow); white-space: nowrap;
-    }
-    td.img-cell { width: 56px; padding: 8px 12px; }
-    td.exclude-cell { width: 64px; text-align: center; padding: 8px 16px; }
-
-    .thumb {
-      width: 40px; height: 40px;
-      object-fit: cover; border-radius: 6px; display: block;
-    }
-    .no-img {
-      display: flex; align-items: center; justify-content: center;
-      width: 40px; height: 40px;
-      background: var(--surface2); border-radius: 6px;
-      font-size: 18px; opacity: .45;
-    }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: var(--surface2); }
-
-    /* 対象外チェックされた行を薄く表示 */
-    tr.excluded td { opacity: .4; }
-    tr.excluded td.exclude-cell { opacity: 1; }
-
-    /* チェックボックス */
-    .exclude-cb {
-      width: 16px; height: 16px;
-      accent-color: var(--red);
-      cursor: pointer;
-    }
-
-    .table-empty {
-      text-align: center; padding: 48px 16px;
-      color: var(--muted); font-size: 14px;
-    }
-    .table-empty .empty-icon { font-size: 36px; display: block; margin-bottom: 12px; opacity: .5; }
-
-    /* ── Summary row ─────────────────────────── */
-    .summary {
-      font-size: 12px; color: var(--muted); margin-top: 12px;
-      display: flex; justify-content: flex-end; gap: 16px;
-    }
-    .summary-excluded { color: var(--red); }
-
-    /* Scrollbars */
-    #progressConsole::-webkit-scrollbar { width: 5px; }
-    #progressConsole::-webkit-scrollbar-track { background: transparent; }
-    #progressConsole::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    footer {
-      margin-top: 16px; font-size: 12px;
-      color: var(--muted); text-align: center;
-    }
-
-    /* ── Progress widget ────────────────────────────── */
-    .progress-widget {
-      padding: 16px 0 4px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 14px;
-    }
-    .progress-bar-track {
-      width: 100%; height: 7px;
-      background: var(--surface2); border-radius: 999px; overflow: hidden;
-    }
-    .progress-bar-fill {
-      height: 100%; border-radius: 999px;
-      background: linear-gradient(90deg, var(--blue), #8b5cf6);
-      width: 0%;
-      transition: width .65s cubic-bezier(.4,0,.2,1);
-    }
-    .progress-bar-fill.is-done  { background: linear-gradient(90deg, #059669, var(--green)); }
-    .progress-bar-fill.is-error { background: var(--red); width: 100% !important; }
-    .progress-info-row {
-      display: flex; align-items: center; gap: 10px;
-      margin-top: 8px;
-    }
-    .progress-step-lbl {
-      font-size: 12px; color: var(--muted); flex: 1;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .progress-pct-lbl {
-      font-size: 12px; font-weight: 700;
-      font-family: "SF Mono","Menlo",monospace;
-      color: var(--blue); flex-shrink: 0;
-      transition: color .3s;
-    }
-    .progress-pct-lbl.is-done  { color: var(--green); }
-    .progress-pct-lbl.is-error { color: var(--red); }
-    .progress-count-row {
-      margin-top: 5px;
-      font-size: 11px; font-weight: 700;
-      font-family: "SF Mono","Menlo",monospace;
-      color: var(--yellow); letter-spacing: .02em;
-    }
-
-    /* ── Nav Drawer ──────────────────────────────────── */
-    .ham-btn {
-      position: fixed; top: 16px; right: 16px; z-index: 1000;
-      width: 42px; height: 42px;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 10px; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 5px;
-      transition: border-color .15s, background .15s;
-    }
-    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
-    .ham-line {
-      width: 18px; height: 2px;
-      background: var(--text); border-radius: 2px;
-      transition: transform .25s ease, opacity .2s ease;
-    }
-    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
-    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-    .nav-backdrop {
-      position: fixed; inset: 0; z-index: 900;
-      background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
-      opacity: 0; pointer-events: none; transition: opacity .25s ease;
-    }
-    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
-    .nav-drawer {
-      position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950;
-      width: 260px; background: var(--surface);
-      border-left: 1px solid var(--border);
-      display: flex; flex-direction: column; padding-top: 16px;
-      transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto;
-    }
-    .nav-drawer.is-open { right: 0; }
-    .nav-drawer-head {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 18px 18px; border-bottom: 1px solid var(--border);
-    }
-    .nav-drawer-logo {
-      width: 34px; height: 34px;
-      background: linear-gradient(135deg, var(--accent), #ff3c7a);
-      border-radius: 8px; display: flex; align-items: center;
-      justify-content: center; font-size: 17px; flex-shrink: 0;
-    }
-    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
-    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
-    .nav-links { padding: 10px 0; flex: 1; }
-    .nav-link {
-      display: flex; align-items: center; gap: 11px;
-      padding: 11px 18px; text-decoration: none; color: var(--muted);
-      font-size: 14px; font-weight: 500;
-      border-left: 3px solid transparent;
-      transition: color .15s, background .15s, border-color .15s;
-    }
-    .nav-link:hover { color: var(--text); background: var(--surface2); }
-    .nav-link.is-active {
-      color: var(--text); background: rgba(255,107,53,.08);
-      border-left-color: var(--accent); font-weight: 600;
-    }
-    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
-    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
+    /* ── Progress ── */
+    .progress-wrap { margin-top:14px; display:none; }
+    .progress-wrap.visible { display:block; }
+    #progressConsole { background:var(--console); border:1px solid var(--border); border-radius:8px; padding:12px; height:180px; overflow-y:auto; font-family:"SF Mono","Fira Code","Menlo",monospace; font-size:12px; line-height:1.65; white-space:pre-wrap; word-break:break-all; color:#a0aec0; }
+    #progressConsole .ln-ok    { color:#68d391; }
+    #progressConsole .ln-err   { color:#fc8181; }
+    #progressConsole .ln-info  { color:#90cdf4; }
+    #progressConsole .ln-done  { color:#fbd38d; font-weight:600; }
+    #progressConsole .ln-start { color:var(--accent); font-weight:600; }
+    .progress-widget { padding:12px 0 4px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+    .progress-bar-track { width:100%; height:6px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+    .progress-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--blue),#8b5cf6); width:0%; transition:width .65s cubic-bezier(.4,0,.2,1); }
+    .progress-bar-fill.is-done  { background:linear-gradient(90deg,#059669,var(--green)); }
+    .progress-bar-fill.is-error { background:var(--red); width:100% !important; }
+    .progress-info-row { display:flex; align-items:center; gap:10px; margin-top:7px; }
+    .progress-step-lbl { font-size:12px; color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .progress-pct-lbl { font-size:12px; font-weight:700; font-family:"SF Mono","Menlo",monospace; color:var(--blue); flex-shrink:0; transition:color .3s; }
+    .progress-pct-lbl.is-done  { color:var(--green); }
+    .progress-pct-lbl.is-error { color:var(--red); }
+    .progress-count-row { margin-top:4px; font-size:11px; font-weight:700; font-family:"SF Mono","Menlo",monospace; color:var(--yellow); letter-spacing:.02em; }
+    /* ── Table ── */
+    .table-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+    .table-toolbar-label { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-right:auto; }
+    .ghost-btn { font-size:12px; color:var(--muted); background:none; border:1px solid var(--border); border-radius:6px; padding:5px 12px; cursor:pointer; transition:color .15s,border-color .15s; white-space:nowrap; }
+    .ghost-btn:hover { color:var(--text); border-color:var(--muted); }
+    .table-wrap { overflow-x:auto; border-radius:8px; border:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead { background:var(--surface2); position:sticky; top:0; z-index:2; }
+    th { padding:10px 12px; text-align:left; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid var(--border); white-space:nowrap; }
+    th.right  { text-align:right; }
+    th.center { text-align:center; }
+    td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text); line-height:1.4; vertical-align:middle; }
+    td.price { text-align:right; font-family:"SF Mono","Menlo",monospace; font-weight:600; color:var(--yellow); white-space:nowrap; }
+    td.img-cell { width:52px; padding:7px 10px; }
+    td.name-cell { min-width:160px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .item-name-link { color:var(--text); text-decoration:none; }
+    .item-name-link:hover { color:var(--blue); text-decoration:underline; }
+    td.exclude-cell { width:60px; text-align:center; padding:7px 12px; }
+    .thumb { width:38px; height:38px; object-fit:cover; border-radius:6px; display:block; }
+    .no-img { display:flex; align-items:center; justify-content:center; width:38px; height:38px; background:var(--surface2); border-radius:6px; font-size:16px; opacity:.45; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(255,255,255,.02); }
+    tr.excluded td { opacity:.4; }
+    tr.excluded td.exclude-cell { opacity:1; }
+    .exclude-cb { width:15px; height:15px; accent-color:var(--red); cursor:pointer; }
+    .table-empty { text-align:center; padding:48px 16px; color:var(--muted); font-size:14px; }
+    .table-empty .empty-icon { font-size:36px; display:block; margin-bottom:12px; opacity:.5; }
+    .summary { font-size:12px; color:var(--muted); margin-top:10px; display:flex; justify-content:flex-end; gap:16px; }
+    .summary-excluded { color:var(--red); }
+    /* ── History columns ── */
+    .hist-divider { border-left:2px solid var(--border) !important; }
+    th.run-col { text-align:right; min-width:110px; background:rgba(96,165,250,.04); }
+    th.run-col .run-date { color:var(--text); font-size:11px; text-transform:none; letter-spacing:0; }
+    th.run-col .run-time { color:var(--muted); font-size:10px; font-weight:400; }
+    td.price-cell { text-align:right; font-family:"SF Mono","Menlo",monospace; font-weight:600; white-space:nowrap; min-width:110px; background:rgba(96,165,250,.02); }
+    td.price-cell .yen      { color:var(--yellow); }
+    td.price-cell .yen-old  { color:var(--muted); text-decoration:line-through; font-size:10px; display:block; margin-top:2px; }
+    td.price-cell .no-data  { color:var(--border); font-size:12px; }
+    td.price-cell .skip-badge { display:inline-block; background:rgba(245,158,11,.15); border:1px solid rgba(245,158,11,.4); color:var(--yellow); border-radius:4px; font-size:9px; font-weight:700; padding:1px 5px; font-family:inherit; letter-spacing:.02em; }
+    td.price-cell .skip-price { color:var(--muted); font-size:10px; display:block; margin-top:2px; }
+    .hist-header-row th { font-size:10px; font-weight:700; color:var(--muted); opacity:.7; letter-spacing:.06em; padding-top:4px; padding-bottom:4px; border-bottom:none; }
+    .hist-header-row th.hist-group-label { text-align:left; color:var(--blue); opacity:1; font-size:10px; letter-spacing:.08em; }
+    #progressConsole::-webkit-scrollbar { width:5px; }
+    #progressConsole::-webkit-scrollbar-track { background:transparent; }
+    #progressConsole::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    footer { margin-top:16px; font-size:12px; color:var(--muted); text-align:center; }
+    /* ── Nav Drawer ── */
+    .ham-btn { position:fixed; top:16px; right:16px; z-index:1000; width:42px; height:42px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:border-color .15s,background .15s; }
+    .ham-btn:hover { border-color:var(--accent); background:var(--surface); }
+    .ham-line { width:18px; height:2px; background:var(--text); border-radius:2px; transition:transform .25s ease,opacity .2s ease; }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity:0; transform:scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+    .nav-backdrop { position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.55); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity .25s ease; }
+    .nav-backdrop.is-open { opacity:1; pointer-events:all; }
+    .nav-drawer { position:fixed; top:0; right:-270px; bottom:0; z-index:950; width:260px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; padding-top:16px; transition:right .28s cubic-bezier(.4,0,.2,1); overflow-y:auto; }
+    .nav-drawer.is-open { right:0; }
+    .nav-drawer-head { display:flex; align-items:center; gap:10px; padding:8px 18px 18px; border-bottom:1px solid var(--border); }
+    .nav-drawer-logo { width:34px; height:34px; background:linear-gradient(135deg,var(--accent),#ff3c7a); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+    .nav-drawer-title { font-size:13px; font-weight:700; color:var(--text); }
+    .nav-drawer-sub   { font-size:11px; color:var(--muted); }
+    .nav-links { padding:10px 0; flex:1; }
+    .nav-link { display:flex; align-items:center; gap:11px; padding:11px 18px; text-decoration:none; color:var(--muted); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:color .15s,background .15s,border-color .15s; }
+    .nav-link:hover { color:var(--text); background:var(--surface2); }
+    .nav-link.is-active { color:var(--text); background:rgba(255,107,53,.08); border-left-color:var(--accent); font-weight:600; }
+    .nav-link-icon { font-size:17px; flex-shrink:0; width:22px; text-align:center; }
+    .nav-sep { height:1px; background:var(--border); margin:8px 18px; }
   </style>
 </head>
 <body>
 
-<!-- Header -->
+<div id="app-content">
+
 <header>
   <div class="logo">📋</div>
   <div>
-    <h1>商品一覧</h1>
-    <p>CSV作成・値引き実行・対象外設定</p>
+    <h1>出品中商品一覧</h1>
+    <p>CSV作成・値引き実行・値下げ履歴</p>
   </div>
 </header>
 
 <!-- 操作カード -->
 <div class="card">
-  <div class="card-title">操作</div>
   <div class="action-row">
     <button class="action-btn btn-csv" id="csvBtn" onclick="updateCSV()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10"/>
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-      </svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
       CSV を更新する
     </button>
     <button class="action-btn btn-run" id="runBtn" onclick="runDiscount()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="5 3 19 12 5 21 5 3"/>
-      </svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       値引きを実行する
     </button>
     <div class="action-meta">
-      <div id="statusBadge" class="badge idle">
-        <span class="dot"></span>
-        <span id="statusText">待機中</span>
-      </div>
-      <div class="file-label">読込ファイル: <span id="fileLabel">—</span></div>
+      <div id="statusBadge" class="badge idle"><span class="dot"></span><span id="statusText">待機中</span></div>
+      <div class="file-label">読込: <span id="fileLabel">—</span></div>
     </div>
   </div>
   <div class="progress-wrap" id="progressWrap">
-    <!-- プログレスバー -->
-    <div class="progress-widget" id="progressWidget">
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" id="progressFill"></div>
-      </div>
+    <div class="progress-widget">
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill"></div></div>
       <div class="progress-info-row">
         <span class="progress-step-lbl" id="progressStep">準備中…</span>
         <span class="progress-pct-lbl"  id="progressPct">0%</span>
       </div>
       <div class="progress-count-row" id="progressCount" style="display:none"></div>
     </div>
-    <!-- ログコンソール -->
     <div id="progressConsole"></div>
   </div>
 </div>
 
-<!-- 商品一覧テーブル -->
+<!-- 商品 + 履歴統合テーブル -->
 <div class="card">
   <div class="table-toolbar">
-    <span class="table-toolbar-label">商品一覧</span>
+    <span class="table-toolbar-label">出品中商品一覧 &amp; 値下げ履歴</span>
     <button class="ghost-btn" onclick="selectAllExclude(false)">全選択解除</button>
     <button class="ghost-btn" onclick="selectAllExclude(true)">全て対象外</button>
+    <button class="ghost-btn" onclick="loadData()">更新</button>
   </div>
   <div class="table-wrap">
     <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>画像</th>
-          <th>商品名</th>
-          <th class="right">価格（円）</th>
-          <th class="center" title="チェックすると値引き対象外になります">対象外</th>
-        </tr>
-      </thead>
+      <thead id="tableHead"></thead>
       <tbody id="productBody">
-        <tr><td colspan="5" class="table-empty">
-          <span class="empty-icon">📦</span>
-          読み込み中…
-        </td></tr>
+        <tr><td colspan="5" class="table-empty"><span class="empty-icon">📦</span>読み込み中…</td></tr>
       </tbody>
     </table>
   </div>
@@ -421,30 +187,68 @@
 <footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
 
 <script>
-  const csvBtn       = document.getElementById('csvBtn');
-  const runBtn       = document.getElementById('runBtn');
-  const statusBadge  = document.getElementById('statusBadge');
-  const statusText   = document.getElementById('statusText');
-  const fileLabel    = document.getElementById('fileLabel');
-  const productBody  = document.getElementById('productBody');
-  const summary      = document.getElementById('summary');
-  const progressWrap = document.getElementById('progressWrap');
-  const progressEl   = document.getElementById('progressConsole');
+  var csvBtn       = document.getElementById('csvBtn');
+  var runBtn       = document.getElementById('runBtn');
+  var statusBadge  = document.getElementById('statusBadge');
+  var statusText   = document.getElementById('statusText');
+  var fileLabel    = document.getElementById('fileLabel');
+  var tableHead    = document.getElementById('tableHead');
+  var productBody  = document.getElementById('productBody');
+  var summary      = document.getElementById('summary');
+  var progressWrap = document.getElementById('progressWrap');
+  var progressEl   = document.getElementById('progressConsole');
 
-  let isRunning    = false;
-  let es           = null;
-  let currentItems = [];
-  const excludedIds = new Set();   // 対象外チェック済みの商品ID
+  var isRunning          = false;
+  var currentItems       = [];
+  var currentMode        = 'csv';
+  var totalDiscountItems = 0;
+  var excludedIds        = new Set();
+  var histRuns           = [];
+  var histMap            = {};
 
-  // ── 進捗管理 ─────────────────────────────────────
-  let currentMode        = 'csv';    // 'csv' | 'discount'
-  let totalDiscountItems = 0;
+  // ── SPA event handlers ────────────────────────────────────
+  function onSpaLog(e) {
+    if (!e.detail) return;
+    var t = e.detail.taskType;
+    if (t !== 'csv' && t !== 'discount') return;
+    appendProgress(e.detail.line);
+  }
+  function onSpaDone(e) {
+    if (!e.detail) return;
+    var t = e.detail.taskType;
+    if (t !== 'csv' && t !== 'discount') return;
+    setProgressBar(100, 'すべての処理が完了しました', null);
+    setRunning(false);
+    loadData();
+  }
+  document.addEventListener('spa:log',  onSpaLog);
+  document.addEventListener('spa:done', onSpaDone);
 
+  window.__pageCleanup = function() {
+    document.removeEventListener('spa:log',  onSpaLog);
+    document.removeEventListener('spa:done', onSpaDone);
+    window.__spaIntercept = null;
+  };
+
+  // ── SPA intercept: /products と /history は同一ページ ────
+  window.__spaIntercept = function(href) {
+    if (href === '/products' || href === '/history') {
+      history.pushState({}, '', href);
+      document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el) {
+        el.classList.toggle('is-active', el.dataset.navpath === '/products');
+      });
+      navClose();
+      return true;
+    }
+    return false;
+  };
+
+  // ── 進捗管理 ──────────────────────────────────────────────
   function resetProgress() {
     document.getElementById('progressFill').style.width = '0%';
     document.getElementById('progressFill').className   = 'progress-bar-fill';
     document.getElementById('progressStep').textContent = '準備中…';
-    const pctEl = document.getElementById('progressPct');
+    var pctEl = document.getElementById('progressPct');
     pctEl.textContent = '0%';
     pctEl.className   = 'progress-pct-lbl';
     document.getElementById('progressCount').style.display = 'none';
@@ -452,293 +256,251 @@
   }
 
   function setProgressBar(pct, stepText, countText) {
-    const fill  = document.getElementById('progressFill');
-    const step  = document.getElementById('progressStep');
-    const pctEl = document.getElementById('progressPct');
-    const count = document.getElementById('progressCount');
-    const p = Math.max(0, Math.min(100, pct));
+    var fill  = document.getElementById('progressFill');
+    var step  = document.getElementById('progressStep');
+    var pctEl = document.getElementById('progressPct');
+    var count = document.getElementById('progressCount');
+    var p = Math.max(0, Math.min(100, pct));
     fill.style.width  = p + '%';
     step.textContent  = stepText;
     pctEl.textContent = p + '%';
-    if (pct >= 100) {
-      fill.classList.add('is-done');
-      pctEl.classList.add('is-done');
-    } else if (pct < 0) {
-      fill.classList.add('is-error');
-      pctEl.classList.add('is-error');
-      pctEl.textContent = '—';
-    }
-    if (typeof countText === 'string') {
-      count.style.display = 'block';
-      count.textContent   = countText;
-    } else if (countText === null) {
-      count.style.display = 'none';
-    }
+    if (pct >= 100)  { fill.classList.add('is-done');  pctEl.classList.add('is-done'); }
+    else if (pct < 0){ fill.classList.add('is-error'); pctEl.classList.add('is-error'); pctEl.textContent = '—'; }
+    if (typeof countText === 'string') { count.style.display = 'block'; count.textContent = countText; }
+    else if (countText === null) { count.style.display = 'none'; }
   }
 
-  // ログ1行から進捗情報を解析して返す
   function parseProgress(line) {
-    const csv = currentMode === 'csv';
-
-    // ── Chrome 起動フェーズ ──────────────────────────
-    if (/Chrome起動 → 開始|Chrome接続確認/.test(line))
-      return { pct: csv ? 8 : 6,  step: 'Chrome 起動中…' };
-    if (line.includes('Chromeプロセス開始'))
-      return { pct: csv ? 13 : 9, step: 'Chrome プロセス起動完了' };
-    if (line.includes('Chrome DevTools接続準備') && line.includes('完了'))
-      return { pct: csv ? 18 : 13, step: 'DevTools 接続完了' };
-    if (line.includes('タブID取得') && !line.includes('見つかりません'))
-      return { pct: csv ? 22 : 16, step: 'ブラウザタブ 接続完了' };
-
-    // ── ナビゲーション ───────────────────────────────
-    if (line.includes('メルカリTOP') && line.includes('200 OK'))
-      return { pct: csv ? 32 : 22, step: 'メルカリ TOP 読み込み完了' };
+    var csv = currentMode === 'csv';
+    if (/Chrome起動 → 開始|Chrome接続確認/.test(line)) return { pct:csv?8:6,   step:'Chrome 起動中…' };
+    if (line.includes('Chromeプロセス開始'))             return { pct:csv?13:9,  step:'Chrome プロセス起動完了' };
+    if (line.includes('Chrome DevTools接続準備') && line.includes('完了')) return { pct:csv?18:13, step:'DevTools 接続完了' };
+    if (line.includes('タブID取得') && !line.includes('見つかりません')) return { pct:csv?22:16, step:'ブラウザタブ 接続完了' };
+    if (line.includes('メルカリTOP') && line.includes('200 OK')) return { pct:csv?32:22, step:'メルカリ TOP 読み込み完了' };
     if (line.includes('商品ID抽出')) {
-      const m = line.match(/→ (\d+)件/);
-      const n = m ? m[1] : '';
+      var m = line.match(/→ (\d+)件/);
+      var n = m ? m[1] : '';
       if (!csv && n) totalDiscountItems = parseInt(n);
-      return { pct: csv ? 48 : 30, step: `出品商品 ${n ? n+'件 ' : ''}取得完了` };
+      return { pct:csv?48:30, step:'出品商品 '+(n?n+'件 ':'')+'取得完了' };
     }
-    if (line.includes('ログイン済み'))
-      return { pct: csv ? 55 : 35, step: 'ログイン確認完了' };
-
+    if (line.includes('ログイン済み')) return { pct:csv?55:35, step:'ログイン確認完了' };
     if (csv) {
-      // ── CSV モード ────────────────────────────────
-      if (line.includes('スナップショット記録') && line.includes('CSV作成モード'))
-        return { pct: 62, step: '商品情報 取得中…' };
+      if (line.includes('スナップショット記録') && line.includes('CSV作成モード')) return { pct:62, step:'商品情報 取得中…' };
       if (line.includes('出品一覧(価格CSV)') && line.includes('商品数取得')) {
-        const m = line.match(/→ (\d+)件/);
-        return { pct: 74, step: `商品データ ${m ? m[1]+'件 ' : ''}収集中` };
+        var m2 = line.match(/→ (\d+)件/);
+        return { pct:74, step:'商品データ '+(m2?m2[1]+'件 ':'')+'収集中' };
       }
-      if (line.includes('画像ロード待機') && line.includes('完了'))
-        return { pct: 86, step: '画像 読み込み完了' };
-      if (line.includes('CSV保存完了'))
-        return { pct: 94, step: 'CSV ファイル保存完了' };
-
+      if (line.includes('画像ロード待機') && line.includes('完了')) return { pct:86, step:'画像 読み込み完了' };
+      if (line.includes('CSV保存完了')) return { pct:94, step:'CSV ファイル保存完了' };
     } else {
-      // ── 値引きモード ──────────────────────────────
-      if (line.includes('スナップショット記録') && line.includes('値引き前'))
-        return { pct: 38, step: '値引き前 スナップショット記録中' };
+      if (line.includes('スナップショット記録') && line.includes('値引き前')) return { pct:38, step:'値引き前 スナップショット記録中' };
       if (line.includes('一括値引き') && line.includes('開始')) {
-        const m = line.match(/開始 \((\d+)件/);
-        if (m) totalDiscountItems = parseInt(m[1]);
-        return { pct: 42, step: `値引き処理 開始 (${totalDiscountItems}件)` };
+        var m3 = line.match(/開始 \((\d+)件/);
+        if (m3) totalDiscountItems = parseInt(m3[1]);
+        return { pct:42, step:'値引き処理 開始 ('+totalDiscountItems+'件)' };
       }
-      const itemM = line.match(/\((\d+)\/(\d+)\) 画面遷移/);
+      var itemM = line.match(/\((\d+)\/(\d+)\) 画面遷移/);
       if (itemM) {
-        const cur   = parseInt(itemM[1]);
-        const total = parseInt(itemM[2]);
-        if (total > 0) totalDiscountItems = total;
-        const pct = 42 + Math.round((cur - 1) / (totalDiscountItems || 1) * 38);
-        return {
-          pct,
-          step:  `値引き処理中  ${cur} / ${totalDiscountItems} 件`,
-          count: `▶ ${cur} / ${totalDiscountItems} 件処理中`
-        };
+        var cur = parseInt(itemM[1]), tot = parseInt(itemM[2]);
+        if (tot > 0) totalDiscountItems = tot;
+        var pct2 = 42 + Math.round((cur-1)/(totalDiscountItems||1)*38);
+        return { pct:pct2, step:'値引き処理中  '+cur+' / '+totalDiscountItems+' 件', count:'▶ '+cur+' / '+totalDiscountItems+' 件処理中' };
       }
-      if (line.includes('スナップショット記録') && line.includes('値引き後'))
-        return { pct: 83, step: '値引き後 スナップショット記録中', count: null };
-      if (line.includes('CSV保存完了'))
-        return { pct: 93, step: 'CSV ファイル保存完了', count: null };
+      if (line.includes('スナップショット記録') && line.includes('値引き後')) return { pct:83, step:'値引き後 スナップショット記録中', count:null };
+      if (line.includes('CSV保存完了')) return { pct:93, step:'CSV ファイル保存完了', count:null };
     }
-
-    // ── 完了 / エラー ─────────────────────────────
-    if (line.includes('全処理完了') || line.includes('[終了] 正常終了'))
-      return { pct: 100, step: 'すべての処理が完了しました', count: null };
-    if (/\[終了\] エラー/.test(line))
-      return { pct: -1, step: 'エラーが発生しました', count: null };
-
+    if (line.includes('全処理完了') || line.includes('[終了] 正常終了')) return { pct:100, step:'すべての処理が完了しました', count:null };
+    if (/\[終了\] エラー/.test(line)) return { pct:-1, step:'エラーが発生しました', count:null };
     return null;
   }
 
-  // ── CSV データ読み込み ──────────────────────────
-  async function loadProducts() {
-    try {
-      const res  = await fetch('/csv-data');
-      const data = await res.json();
-      currentItems = data.items || [];
-      renderTable(currentItems, data.file || '');
-    } catch (err) {
-      productBody.innerHTML = `<tr><td colspan="5" class="table-empty">
-        <span class="empty-icon">⚠️</span>
-        エラー: ${escHtml(err.message)}
-      </td></tr>`;
-    }
+  // ── データ読み込み（CSV + 履歴を並列取得） ────────────────
+  function loadData() {
+    Promise.all([
+      fetch('/csv-data').then(function(r){ return r.json(); }),
+      fetch('/history-data').then(function(r){ return r.json(); })
+    ]).then(function(results) {
+      var csvData  = results[0];
+      var histData = results[1];
+
+      currentItems = csvData.items || [];
+      fileLabel.textContent = csvData.file || '（CSVなし）';
+
+      histRuns = (histData && histData.runs)     || [];
+      histMap  = {};
+      if (histData && histData.products) {
+        histData.products.forEach(function(p) { histMap[p.itemId] = p; });
+      }
+
+      renderTable(currentItems);
+    }).catch(function(err) {
+      productBody.innerHTML = '<tr><td colspan="5" class="table-empty"><span class="empty-icon">⚠️</span>エラー: '+escHtml(err.message)+'</td></tr>';
+    });
   }
 
-  function renderTable(items, file) {
-    fileLabel.textContent = file || '（CSVなし）';
+  // ── テーブル描画 ──────────────────────────────────────────
+  function renderTable(items) {
+    var runCount = Math.min(histRuns.length, 5);
+
+    // ── thead ────────────────────────────────────────────────
+    var runHeaders = '';
+    for (var ri = 0; ri < runCount; ri++) {
+      var r  = histRuns[ri];
+      var dt = new Date(r.timestamp);
+      var d  = dt.toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'});
+      var tm = dt.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+      var sep = (ri === 0) ? ' hist-divider' : '';
+      runHeaders += '<th class="run-col'+sep+'"><span class="run-date">'+escHtml(d)+'</span><br><span class="run-time">'+escHtml(tm)+'</span></th>';
+    }
+
+    // 2段ヘッダー: 1行目に「値下げ履歴」グループラベル
+    var histGroupHeader = '';
+    if (runCount > 0) {
+      histGroupHeader = '<tr class="hist-header-row">'
+        + '<th colspan="5"></th>'
+        + '<th class="hist-group-label hist-divider" colspan="'+runCount+'">📊 値下げ履歴（直近'+runCount+'回）</th>'
+        + '</tr>';
+    }
+
+    tableHead.innerHTML = histGroupHeader
+      + '<tr>'
+      + '<th>#</th><th>画像</th><th>商品名</th>'
+      + '<th class="right">現在価格</th>'
+      + '<th class="center" title="チェックすると値引き対象外になります">対象外</th>'
+      + runHeaders
+      + '</tr>';
+
+    var colSpan = 5 + runCount;
 
     if (!items || items.length === 0) {
-      productBody.innerHTML = `<tr><td colspan="5" class="table-empty">
-        <span class="empty-icon">📦</span>
-        商品データがありません。「CSV を更新する」を押して取得してください。
-      </td></tr>`;
+      productBody.innerHTML = '<tr><td colspan="'+colSpan+'" class="table-empty"><span class="empty-icon">📦</span>商品データがありません。「CSV を更新する」を押して取得してください。</td></tr>';
       summary.innerHTML = '';
       return;
     }
 
-    productBody.innerHTML = items.map((item, i) => {
-      const excluded = excludedIds.has(item.id);
-      return `
-      <tr class="${excluded ? 'excluded' : ''}" data-id="${escHtml(item.id)}">
-        <td style="color:var(--muted);font-size:12px">${i + 1}</td>
-        <td class="img-cell">
-          ${item.imagePath
-            ? `<img src="${item.imagePath}" class="thumb" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'no-img',textContent:'📷'}))">`
-            : `<span class="no-img">📷</span>`}
-        </td>
-        <td>${escHtml(item.name)}</td>
-        <td class="price">¥${Number(item.price).toLocaleString('ja-JP')}</td>
-        <td class="exclude-cell">
-          <input type="checkbox" class="exclude-cb" data-id="${escHtml(item.id)}"
-                 ${excluded ? 'checked' : ''}
-                 title="チェックすると値引き対象外になります">
-        </td>
-      </tr>`;
+    productBody.innerHTML = items.map(function(item, i) {
+      var excluded = excludedIds.has(item.id);
+      var histItem = histMap[item.id];
+
+      // 履歴セル
+      var histCells = '';
+      for (var ci = 0; ci < runCount; ci++) {
+        var cell = (histItem && histItem.cells && ci < histItem.cells.length) ? histItem.cells[ci] : null;
+        var sep2 = (ci === 0) ? ' hist-divider' : '';
+        histCells += renderHistCell(cell, sep2);
+      }
+
+      var imgHtml = item.imagePath
+        ? '<img src="'+escHtml(item.imagePath)+'" class="thumb" alt="" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'no-img\',textContent:\'📷\'}))">'
+        : '<span class="no-img">📷</span>';
+
+      return '<tr class="'+(excluded?'excluded':'')+'" data-id="'+escHtml(item.id)+'">'
+        + '<td style="color:var(--muted);font-size:11px">'+(i+1)+'</td>'
+        + '<td class="img-cell">'+imgHtml+'</td>'
+        + '<td class="name-cell" title="'+escHtml(item.name)+'"><a class="item-name-link" href="https://jp.mercari.com/item/'+escHtml(item.id)+'" target="_blank" rel="noopener">'+escHtml(item.name)+'</a></td>'
+        + '<td class="price">¥'+Number(item.price).toLocaleString('ja-JP')+'</td>'
+        + '<td class="exclude-cell"><input type="checkbox" class="exclude-cb" data-id="'+escHtml(item.id)+'"'+(excluded?' checked':'')+' title="チェックすると値引き対象外になります"></td>'
+        + histCells
+        + '</tr>';
     }).join('');
 
-    // チェックボックスのイベント登録
-    productBody.querySelectorAll('.exclude-cb').forEach(cb => {
+    productBody.querySelectorAll('.exclude-cb').forEach(function(cb) {
       cb.addEventListener('change', onExcludeChange);
     });
 
     updateSummary(items.length);
   }
 
-  function onExcludeChange(e) {
-    const id  = e.target.dataset.id;
-    const row = e.target.closest('tr');
-    if (e.target.checked) {
-      excludedIds.add(id);
-      row.classList.add('excluded');
-    } else {
-      excludedIds.delete(id);
-      row.classList.remove('excluded');
+  function renderHistCell(cell, extraClass) {
+    var cls = 'price-cell' + (extraClass || '');
+    if (!cell) {
+      return '<td class="'+cls+'"><span class="no-data">—</span></td>';
     }
+    if (cell.price !== null && cell.price !== undefined) {
+      var oldHtml = (cell.oldPrice !== null && cell.oldPrice !== undefined)
+        ? '<span class="yen-old">¥'+Number(cell.oldPrice).toLocaleString('ja-JP')+'</span>' : '';
+      return '<td class="'+cls+'"><span class="yen">¥'+Number(cell.price).toLocaleString('ja-JP')+'</span>'+oldHtml+'</td>';
+    }
+    if (cell.reason) {
+      var priceHtml = (cell.oldPrice !== null && cell.oldPrice !== undefined)
+        ? '<span class="skip-price">¥'+Number(cell.oldPrice).toLocaleString('ja-JP')+'</span>' : '';
+      return '<td class="'+cls+'"><span class="skip-badge">'+escHtml(cell.reason)+'</span>'+priceHtml+'</td>';
+    }
+    return '<td class="'+cls+'"><span class="no-data">—</span></td>';
+  }
+
+  function onExcludeChange(e) {
+    var id  = e.target.dataset.id;
+    var row = e.target.closest('tr');
+    if (e.target.checked) { excludedIds.add(id); row.classList.add('excluded'); }
+    else { excludedIds.delete(id); row.classList.remove('excluded'); }
     updateSummary(currentItems.length);
   }
 
   function updateSummary(total) {
-    const excCount = excludedIds.size;
-    const targetCount = total - excCount;
-    let html = `<span>${total} 件</span>`;
+    var excCount = excludedIds.size, targetCount = total - excCount;
+    var html = '<span>'+total+' 件</span>';
     if (excCount > 0) {
-      html += `<span class="summary-excluded">対象外: ${excCount} 件</span>`;
-      html += `<span>値引き対象: ${targetCount} 件</span>`;
+      html += '<span class="summary-excluded">対象外: '+excCount+' 件</span>';
+      html += '<span>値引き対象: '+targetCount+' 件</span>';
+    }
+    if (histRuns.length > 0) {
+      html += '<span style="color:var(--blue)">履歴: 直近'+Math.min(histRuns.length,5)+'回分</span>';
     }
     summary.innerHTML = html;
   }
 
   function selectAllExclude(check) {
-    currentItems.forEach(item => {
-      if (check) {
-        excludedIds.add(item.id);
-      } else {
-        excludedIds.delete(item.id);
-      }
-    });
-    renderTable(currentItems, fileLabel.textContent);
+    currentItems.forEach(function(item){ check ? excludedIds.add(item.id) : excludedIds.delete(item.id); });
+    renderTable(currentItems);
   }
 
-  // ── CSV 更新 ──────────────────────────────────
-  async function updateCSV() {
+  // ── CSV 更新 ──────────────────────────────────────────────
+  function updateCSV() {
     if (isRunning) return;
     currentMode = 'csv';
     resetProgress();
-
     setRunning(true, 'CSV更新中…');
     progressWrap.classList.add('visible');
     progressEl.innerHTML = '';
+    if (window.SPA) window.SPA.clearLog('csv');
 
-    try {
-      const res  = await fetch('/create-csv', { method: 'POST' });
-      const data = await res.json();
-      if (res.status === 409) {
-        appendProgress('⚠ すでに実行中です');
-        setRunning(false);
-        return;
-      }
-      if (!res.ok) {
-        appendProgress('ERROR: ' + (data.error || res.statusText));
-        setRunning(false);
-        return;
-      }
-    } catch (err) {
-      appendProgress('ERROR: ' + err.message);
-      setRunning(false);
-      return;
-    }
-
-    connectSSE(() => { loadProducts(); });
+    fetch('/create-csv', { method:'POST' }).then(function(res){ return res.json().then(function(data){ return {res:res, data:data}; }); }).then(function(rd) {
+      if (rd.res.status === 409) { appendProgress('⚠ すでに実行中です'); setRunning(false); return; }
+      if (!rd.res.ok) { appendProgress('ERROR: '+(rd.data.error || rd.res.statusText)); setRunning(false); return; }
+      if (window.SPA) window.SPA.connect('csv');
+    }).catch(function(err) {
+      appendProgress('ERROR: '+err.message); setRunning(false);
+    });
   }
 
-  // ── 値引き実行 ─────────────────────────────────
-  async function runDiscount() {
+  // ── 値引き実行 ────────────────────────────────────────────
+  function runDiscount() {
     if (isRunning) return;
     currentMode = 'discount';
     totalDiscountItems = 0;
     resetProgress();
-
-    const excluded = Array.from(excludedIds);
-
+    var excluded = Array.from(excludedIds);
     setRunning(true, '値引き実行中…');
     progressWrap.classList.add('visible');
     progressEl.innerHTML = '';
+    if (excluded.length > 0) appendProgress('[対象外] '+excluded.length+' 件をスキップします');
+    if (window.SPA) window.SPA.clearLog('discount');
 
-    if (excluded.length > 0) {
-      appendProgress(`[対象外] ${excluded.length} 件をスキップします`);
-    }
-
-    try {
-      const res = await fetch('/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ excludedIds: excluded }),
-      });
-      const data = await res.json();
-      if (res.status === 409) {
-        appendProgress('⚠ すでに実行中です');
-        setRunning(false);
-        return;
-      }
-      if (!res.ok) {
-        appendProgress('ERROR: ' + (data.error || res.statusText));
-        setRunning(false);
-        return;
-      }
-    } catch (err) {
-      appendProgress('ERROR: ' + err.message);
-      setRunning(false);
-      return;
-    }
-
-    connectSSE(() => { loadProducts(); });
+    fetch('/run', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ excludedIds: excluded }),
+    }).then(function(res){ return res.json().then(function(data){ return {res:res, data:data}; }); }).then(function(rd) {
+      if (rd.res.status === 409) { appendProgress('⚠ すでに実行中です'); setRunning(false); return; }
+      if (!rd.res.ok) { appendProgress('ERROR: '+(rd.data.error || rd.res.statusText)); setRunning(false); return; }
+      if (window.SPA) window.SPA.connect('discount');
+    }).catch(function(err) {
+      appendProgress('ERROR: '+err.message); setRunning(false);
+    });
   }
 
-  // ── SSE ──────────────────────────────────────────
-  function connectSSE(onDone) {
-    if (es) { es.close(); }
-    es = new EventSource('/events');
-    es.onmessage = (e) => {
-      if (e.data === '__DONE__') {
-        es.close();
-        es = null;
-        setProgressBar(100, 'すべての処理が完了しました', null);
-        setRunning(false);
-        if (onDone) onDone();
-        return;
-      }
-      appendProgress(e.data);
-    };
-    es.onerror = () => {
-      es.close();
-      es = null;
-      setRunning(false);
-    };
-  }
-
-  // ── 状態管理 ─────────────────────────────────────
+  // ── 状態管理 ──────────────────────────────────────────────
   function setRunning(running, label) {
     isRunning = running;
     csvBtn.disabled = running;
@@ -752,14 +514,11 @@
     }
   }
 
-  // ── プログレスコンソール ──────────────────────────
+  // ── プログレスコンソール ───────────────────────────────────
   function appendProgress(text) {
-    // プログレスバー更新
-    const prog = parseProgress(text);
-    if (prog) setProgressBar(prog.pct, prog.step, prog.count);
-
-    // ログ表示
-    const d = document.createElement('div');
+    var prog = parseProgress(text);
+    if (prog) setProgressBar(prog.pct, prog.step, prog.count !== undefined ? prog.count : undefined);
+    var d = document.createElement('div');
     d.className = lineClass(text);
     d.textContent = text;
     progressEl.appendChild(d);
@@ -767,7 +526,7 @@
   }
 
   function lineClass(t) {
-    const l = t.toLowerCase();
+    var l = t.toLowerCase();
     if (t.startsWith('[終了]'))  return 'ln-done';
     if (t.startsWith('[起動]'))  return 'ln-start';
     if (l.includes('error') || l.includes('エラー')) return 'ln-err';
@@ -777,14 +536,32 @@
   }
 
   function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── 初期化 ───────────────────────────────────────
-  loadProducts();
+  // ── Init ─────────────────────────────────────────────────
+  (function() {
+    if (window.SPA) {
+      var discountLines = window.SPA.getLines('discount');
+      var csvLines      = window.SPA.getLines('csv');
+      var lines = discountLines.length > 0 ? discountLines : csvLines;
+      var restoredMode = discountLines.length > 0 ? 'discount' : 'csv';
+      if (lines.length > 0) {
+        currentMode = restoredMode;
+        progressWrap.classList.add('visible');
+        lines.forEach(function(l){ appendProgress(l); });
+        if (window.SPA.isRunning(restoredMode)) {
+          setRunning(true, restoredMode === 'discount' ? '値引き実行中…' : 'CSV更新中…');
+        }
+      }
+    }
+    loadData();
+  })();
 </script>
 
-<!-- ─── Navigation Drawer ──────────────────────────────── -->
+</div><!-- /#app-content -->
+
+<!-- ═══════════════════════════════════ NAV DRAWER ════════════════════════════════════ -->
 <button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
   <span class="ham-line"></span>
   <span class="ham-line"></span>
@@ -800,34 +577,92 @@
     </div>
   </div>
   <div class="nav-links">
-    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
-    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
-    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/"         data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>出品中商品一覧</a>
+    <a class="nav-link" href="/pl"       data-navpath="/pl"><span class="nav-link-icon">💹</span>利益管理 (P&amp;L)</a>
     <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
     <div class="nav-sep"></div>
     <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
   </div>
 </nav>
+
 <script>
-  (function() {
-    const p = location.pathname;
-    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
-      if (el.dataset.navpath === p) el.classList.add('is-active');
-    });
-  })();
-  function navToggle() {
-    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+(function(){
+  window.navToggle = function() {
+    var open = document.getElementById('navDrawer').classList.toggle('is-open');
     document.getElementById('hamBtn').classList.toggle('is-open', open);
     document.getElementById('navBackdrop').classList.toggle('is-open', open);
-    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
-  }
-  function navClose() {
+    document.getElementById('navDrawer').setAttribute('aria-hidden', String(!open));
+  };
+  window.navClose = function() {
     document.getElementById('navDrawer').classList.remove('is-open');
     document.getElementById('hamBtn').classList.remove('is-open');
     document.getElementById('navBackdrop').classList.remove('is-open');
     document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  };
+  (function(){
+    var p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){
+      el.classList.toggle('is-active', el.dataset.navpath === p);
+    });
+  })();
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') navClose(); });
+  if (window.__SPA_INITIALIZED__) return;
+  window.__SPA_INITIALIZED__ = true;
+  window.SPA = {
+    _esMap:{}, _logs:{research:[],discount:[],csv:[]}, _runningSet:new Set(),
+    connect: function(t) {
+      var ep=t==='research'?'/events/research':'/events';
+      this._runningSet.add(t); this._logs[t]=[];
+      if(this._esMap[t]){this._esMap[t].close();delete this._esMap[t];}
+      var self=this, es=new EventSource(ep); this._esMap[t]=es;
+      es.onmessage=function(e){
+        if(e.data==='__DONE__'){self._runningSet.delete(t);document.dispatchEvent(new CustomEvent('spa:done',{detail:{taskType:t,ok:true}}));es.close();delete self._esMap[t];return;}
+        self._logs[t].push(e.data);document.dispatchEvent(new CustomEvent('spa:log',{detail:{taskType:t,line:e.data}}));
+      };
+      es.onerror=function(){self._runningSet.delete(t);document.dispatchEvent(new CustomEvent('spa:done',{detail:{taskType:t,ok:false}}));es.close();delete self._esMap[t];};
+    },
+    isRunning:function(t){return this._runningSet.has(t);},
+    isAnyRunning:function(){return this._runningSet.size>0;},
+    getLines:function(t){return(this._logs[t]||[]).slice();},
+    clearLog:function(t){this._logs[t]=[];}
+  };
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[data-navpath]'); if(!link)return;
+    var href=link.getAttribute('href'); if(!href)return;
+    e.preventDefault(); if(href===location.pathname){navClose();return;}
+    _spaNavigate(href);
+  });
+  function _spaNavigate(href){
+    if(typeof window.__spaIntercept==='function'&&window.__spaIntercept(href))return;
+    fetch(href).then(function(r){return r.text();}).then(function(html){
+      var doc=new DOMParser().parseFromString(html,'text/html');
+      var nc=doc.getElementById('app-content'),cc=document.getElementById('app-content');
+      if(!nc||!cc){location.href=href;return;}
+      if(typeof window.__pageCleanup==='function'){window.__pageCleanup();window.__pageCleanup=null;}
+      var newCss=Array.from(doc.head.querySelectorAll('style')).map(function(s){return s.textContent;}).join('\n');
+      var ps=document.getElementById('page-style');
+      if(ps){ps.textContent=newCss;}else{var ns=document.createElement('style');ns.id='page-style';ns.textContent=newCss;document.head.appendChild(ns);}
+      cc.replaceWith(nc); history.pushState({},'',href); document.title=doc.title;
+      document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){el.classList.toggle('is-active',el.dataset.navpath===href);});
+      nc.querySelectorAll('script').forEach(function(s){var ns=document.createElement('script');ns.textContent=s.textContent;document.head.appendChild(ns);ns.remove();});
+      navClose();
+    }).catch(function(){location.href=href;});
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
+  window.addEventListener('popstate',function(){_spaNavigate(location.pathname);});
+  // ── Global status bar ─────────────────────────────────────
+  var _ssbEl=document.createElement('div'); _ssbEl.id='spa-status-bar';
+  _ssbEl.innerHTML='<div class="ssb-row"><span class="ssb-dot"></span><span class="ssb-label">—</span><span class="ssb-line">—</span><button class="ssb-close" onclick="document.getElementById(\'spa-status-bar\').classList.remove(\'is-visible\')">✕</button></div><div class="ssb-track"><div class="ssb-fill"></div></div>';
+  document.body.appendChild(_ssbEl);
+  var _ssbSt=document.createElement('style');
+  _ssbSt.textContent='#spa-status-bar{position:fixed;bottom:-90px;left:50%;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));background:#1a1d27;border:1px solid #2e3250;border-radius:12px;padding:12px 16px 10px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:1500;transition:bottom .3s cubic-bezier(.4,0,.2,1);pointer-events:none}#spa-status-bar.is-visible{bottom:16px;pointer-events:all}.ssb-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}.ssb-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;flex-shrink:0;animation:ssbPulse 1s infinite}#spa-status-bar.is-done .ssb-dot{background:#22c55e;animation:none}#spa-status-bar.is-error .ssb-dot{background:#ef4444;animation:none}@keyframes ssbPulse{0%,100%{opacity:1}50%{opacity:.3}}.ssb-label{font-size:12px;font-weight:700;color:#e2e8f0;flex-shrink:0}.ssb-line{font-size:11px;color:#64748b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SF Mono","Menlo",monospace}.ssb-close{background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0}.ssb-close:hover{color:#e2e8f0}.ssb-track{height:3px;background:#22263a;border-radius:999px;overflow:hidden}.ssb-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#818cf8)}#spa-status-bar.is-done .ssb-fill{background:#22c55e}#spa-status-bar.is-error .ssb-fill{background:#ef4444}#spa-status-bar:not(.is-done):not(.is-error) .ssb-fill{width:40%;animation:ssbSlide 1.5s ease-in-out infinite}#spa-status-bar.is-done .ssb-fill,#spa-status-bar.is-error .ssb-fill{width:100%;transition:width .3s;animation:none}@keyframes ssbSlide{0%{margin-left:-40%}100%{margin-left:100%}}';
+  document.head.appendChild(_ssbSt);
+  var _ssbLbls={research:'売れ筋リサーチ中',discount:'値引き実行中',csv:'CSV更新中'};
+  var _ssbBar=document.getElementById('spa-status-bar');
+  document.addEventListener('spa:log',function(e){if(!e.detail||!_ssbBar)return;_ssbBar.querySelector('.ssb-label').textContent=_ssbLbls[e.detail.taskType]||e.detail.taskType;_ssbBar.querySelector('.ssb-line').textContent=e.detail.line;_ssbBar.classList.remove('is-done','is-error');_ssbBar.classList.add('is-visible');});
+  document.addEventListener('spa:done',function(e){if(!e.detail||!_ssbBar)return;_ssbBar.querySelector('.ssb-label').textContent=_ssbLbls[e.detail.taskType]||e.detail.taskType;_ssbBar.querySelector('.ssb-line').textContent=e.detail.ok?'処理が完了しました':'エラーが発生しました';_ssbBar.classList.remove('is-done','is-error');_ssbBar.classList.add(e.detail.ok?'is-done':'is-error');setTimeout(function(){if(_ssbBar)_ssbBar.classList.remove('is-visible','is-done','is-error');},4000);});
+})();
 </script>
+
 </body>
 </html>

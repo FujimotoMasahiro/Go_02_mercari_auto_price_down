@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利益管理 (P&L) — メルカリ自動値引きツール</title>
+  <style id="page-style">
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3250;
+      --accent: #ff6b35; --green: #22c55e; --yellow: #f59e0b; --red: #ef4444;
+      --blue: #60a5fa; --text: #e2e8f0; --muted: #64748b; --radius: 12px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px 16px 80px; }
+    header { width: 100%; max-width: 1200px; display: flex; align-items: center; gap: 14px; margin-bottom: 28px; padding-right: 56px; }
+    .logo { width: 44px; height: 44px; background: linear-gradient(135deg, #059669, #047857); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Summary cards ── */
+    .summary-grid { width: 100%; max-width: 1200px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+    .stat-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+    .stat-value { font-size: 22px; font-weight: 700; font-family: "SF Mono","Menlo",monospace; }
+    .stat-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .stat-card.highlight { border-color: var(--green); background: rgba(34,197,94,.06); }
+    .stat-card.warn      { border-color: var(--yellow); background: rgba(245,158,11,.06); }
+    .stat-card.danger    { border-color: var(--red); background: rgba(239,68,68,.06); }
+    .col-green  { color: var(--green); }
+    .col-yellow { color: var(--yellow); }
+    .col-red    { color: var(--red); }
+    .col-blue   { color: var(--blue); }
+
+    /* progress bar toward target */
+    .progress-wrap { width: 100%; max-width: 1200px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 20px; }
+    .progress-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .progress-bar-track { width: 100%; height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+    .progress-bar-fill  { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--blue), var(--green)); transition: width .6s ease; }
+
+    /* ── Table ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; width: 100%; max-width: 1200px; margin-bottom: 20px; }
+    .table-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .table-toolbar-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-right: auto; }
+    .ghost-btn { font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; transition: color .15s, border-color .15s; white-space: nowrap; }
+    .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+    .filter-btn { font-size: 12px; border-radius: 6px; padding: 5px 12px; cursor: pointer; border: 1px solid var(--border); background: none; color: var(--muted); transition: all .15s; white-space: nowrap; }
+    .filter-btn.active { background: rgba(96,165,250,.15); border-color: var(--blue); color: var(--blue); font-weight: 600; }
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead { background: var(--surface2); position: sticky; top: 0; z-index: 2; }
+    th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th.right { text-align: right; }
+    td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+    td.right { text-align: right; font-family: "SF Mono","Menlo",monospace; font-weight: 600; }
+    td.img-cell { width: 52px; padding: 6px 10px; }
+    td.name-cell { min-width: 140px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; display: block; }
+    .no-img { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--surface2); border-radius: 6px; font-size: 15px; opacity: .4; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .table-empty { text-align: center; padding: 48px 16px; color: var(--muted); font-size: 14px; }
+    .empty-icon { font-size: 36px; display: block; margin-bottom: 12px; opacity: .5; }
+
+    /* inline cost editor */
+    .cost-cell { min-width: 130px; }
+    .cost-display { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .cost-display:hover .edit-icon { opacity: 1; }
+    .edit-icon { opacity: 0; font-size: 11px; color: var(--muted); transition: opacity .15s; }
+    .cost-form { display: none; gap: 4px; align-items: center; flex-wrap: wrap; }
+    .cost-form.active { display: flex; }
+    .cost-input { width: 80px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12px; padding: 3px 6px; font-family: "SF Mono","Menlo",monospace; }
+    .cost-input:focus { outline: none; border-color: var(--blue); }
+    .save-btn { font-size: 11px; background: var(--blue); color: #fff; border: none; border-radius: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+    .save-btn:hover { opacity: .85; }
+
+    /* profit badge */
+    .profit-cell { min-width: 100px; }
+    .profit-pos { color: var(--green); }
+    .profit-neg { color: var(--red); }
+    .profit-unk { color: var(--muted); font-size: 12px; }
+    .rate-badge { font-size: 10px; border-radius: 3px; padding: 1px 5px; margin-left: 4px; font-weight: 700; }
+    .rate-badge.pos { background: rgba(34,197,94,.15); color: var(--green); }
+    .rate-badge.neg { background: rgba(239,68,68,.15); color: var(--red); }
+
+    /* days badge */
+    .days-badge { font-size: 10px; border-radius: 3px; padding: 1px 5px; font-weight: 700; }
+    .days-ok   { background: rgba(34,197,94,.12); color: var(--green); }
+    .days-warn { background: rgba(245,158,11,.12); color: var(--yellow); }
+    .days-over { background: rgba(239,68,68,.12); color: var(--red); }
+
+    footer { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+
+    /* Nav Drawer */
+    .ham-btn { position: fixed; top: 16px; right: 16px; z-index: 1000; width: 42px; height: 42px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; transition: border-color .15s, background .15s; }
+    .ham-btn:hover { border-color: var(--accent); background: var(--surface); }
+    .ham-line { width: 18px; height: 2px; background: var(--text); border-radius: 2px; transition: transform .25s ease, opacity .2s ease; }
+    .ham-btn.is-open .ham-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .ham-btn.is-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .ham-btn.is-open .ham-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav-backdrop { position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,.55); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+    .nav-backdrop.is-open { opacity: 1; pointer-events: all; }
+    .nav-drawer { position: fixed; top: 0; right: -270px; bottom: 0; z-index: 950; width: 260px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; padding-top: 16px; transition: right .28s cubic-bezier(.4,0,.2,1); overflow-y: auto; }
+    .nav-drawer.is-open { right: 0; }
+    .nav-drawer-head { display: flex; align-items: center; gap: 10px; padding: 8px 18px 18px; border-bottom: 1px solid var(--border); }
+    .nav-drawer-logo { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), #ff3c7a); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+    .nav-drawer-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .nav-drawer-sub   { font-size: 11px; color: var(--muted); }
+    .nav-links { padding: 10px 0; flex: 1; }
+    .nav-link { display: flex; align-items: center; gap: 11px; padding: 11px 18px; text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 500; border-left: 3px solid transparent; transition: color .15s, background .15s, border-color .15s; }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.is-active { color: var(--text); background: rgba(255,107,53,.08); border-left-color: var(--accent); font-weight: 600; }
+    .nav-link-icon { font-size: 17px; flex-shrink: 0; width: 22px; text-align: center; }
+    .nav-sep { height: 1px; background: var(--border); margin: 8px 18px; }
+  </style>
+</head>
+<body>
+<div id="app-content">
+
+<header>
+  <div class="logo">💹</div>
+  <div>
+    <h1>利益管理 (P&amp;L)</h1>
+    <p>仕入れ原価・純利益・在庫回転の管理</p>
+  </div>
+</header>
+
+<!-- サマリーカード -->
+<div class="summary-grid" id="summaryGrid">
+  <div class="stat-card"><div class="stat-label">出品中商品数</div><div class="stat-value col-blue" id="sTotalItems">—</div><div class="stat-sub">件</div></div>
+  <div class="stat-card" id="sInvestedCard"><div class="stat-label">総仕入れ額</div><div class="stat-value col-yellow" id="sTotalInvested">—</div><div class="stat-sub" id="sNoCost">原価未入力: —件</div></div>
+  <div class="stat-card" id="sProfitCard"><div class="stat-label">期待利益合計</div><div class="stat-value" id="sTotalProfit">—</div><div class="stat-sub" id="sAvgRate">平均利益率: —%</div></div>
+  <div class="stat-card"><div class="stat-label">月間目標</div><div class="stat-value col-blue">¥300,000</div><div class="stat-sub">現在庫売切で <span id="sTargetCover">—</span></div></div>
+</div>
+
+<!-- 目標進捗バー -->
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>現在庫の期待利益 → 月30万目標</span>
+    <span id="progressPct">—%</span>
+  </div>
+  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+</div>
+
+<!-- 商品テーブル -->
+<div class="card">
+  <div class="table-toolbar">
+    <span class="table-toolbar-label">商品別 利益明細</span>
+    <button class="filter-btn active" id="filterAll"    onclick="setFilter('all')">すべて</button>
+    <button class="filter-btn"        id="filterNoCost" onclick="setFilter('nocost')">原価未入力</button>
+    <button class="filter-btn"        id="filterOver30" onclick="setFilter('over30')">30日超え</button>
+    <button class="ghost-btn" onclick="loadData()">更新</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>画像</th><th>商品名</th>
+          <th class="right">出品価格</th>
+          <th class="right">受取額<br><span style="font-weight:400;opacity:.6">手数料後</span></th>
+          <th>仕入れ値 / 送料</th>
+          <th class="right">純利益</th>
+          <th class="right">出品日数</th>
+        </tr>
+      </thead>
+      <tbody id="plBody">
+        <tr><td colspan="8" class="table-empty"><span class="empty-icon">💹</span>読み込み中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
+
+<script>
+  var allItems = [];
+  var currentFilter = 'all';
+
+  function setFilter(f) {
+    currentFilter = f;
+    ['all','nocost','over30'].forEach(function(k) {
+      document.getElementById('filter' + k.charAt(0).toUpperCase() + k.slice(1))
+        .classList.toggle('active', k === f);
+    });
+    renderTable();
+  }
+
+  function filteredItems() {
+    if (currentFilter === 'nocost')  return allItems.filter(function(it){ return !it.hasCost; });
+    if (currentFilter === 'over30')  return allItems.filter(function(it){ return it.listedDays >= 30; });
+    return allItems;
+  }
+
+  async function loadData() {
+    try {
+      var res  = await fetch('/pl-data');
+      var data = await res.json();
+      allItems = data.items || [];
+      renderSummary(data.summary);
+      renderTable();
+    } catch(e) {
+      document.getElementById('plBody').innerHTML =
+        '<tr><td colspan="8" class="table-empty"><span class="empty-icon">⚠️</span>エラー: ' + escHtml(e.message) + '</td></tr>';
+    }
+  }
+
+  function renderSummary(s) {
+    if (!s) return;
+    document.getElementById('sTotalItems').textContent    = s.totalItems;
+    document.getElementById('sTotalInvested').textContent = '¥' + s.totalInvested.toLocaleString('ja-JP');
+    document.getElementById('sNoCost').textContent        = '原価未入力: ' + s.noCostCount + '件';
+
+    var profitEl = document.getElementById('sTotalProfit');
+    profitEl.textContent = '¥' + s.totalExpectedProfit.toLocaleString('ja-JP');
+    profitEl.className   = 'stat-value ' + (s.totalExpectedProfit >= 0 ? 'col-green' : 'col-red');
+
+    document.getElementById('sAvgRate').textContent = '平均利益率: ' + s.avgProfitRate.toFixed(1) + '%';
+
+    var pct = Math.min(100, Math.round(s.totalExpectedProfit / s.targetMonthly * 100));
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressFill').style.width = pct + '%';
+
+    var cover = s.totalExpectedProfit >= s.targetMonthly ? '達成 ✓' :
+                '¥' + (s.targetMonthly - s.totalExpectedProfit).toLocaleString('ja-JP') + ' 不足';
+    document.getElementById('sTargetCover').textContent = cover;
+    document.getElementById('sTargetCover').style.color =
+      s.totalExpectedProfit >= s.targetMonthly ? 'var(--green)' : 'var(--yellow)';
+
+    if (s.noCostCount > 0) {
+      document.getElementById('sInvestedCard').className = 'stat-card warn';
+    }
+  }
+
+  function renderTable() {
+    var items = filteredItems();
+    var body  = document.getElementById('plBody');
+    if (!items || items.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="table-empty"><span class="empty-icon">📦</span>対象商品がありません</td></tr>';
+      return;
+    }
+    body.innerHTML = items.map(function(it, i) {
+      var img = it.imagePath
+        ? '<img src="' + escHtml(it.imagePath) + '" class="thumb" alt="" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'no-img\',textContent:\'📷\'}))">'
+        : '<span class="no-img">📷</span>';
+
+      var profitHtml;
+      if (!it.hasCost) {
+        profitHtml = '<span class="profit-unk">— 未入力</span>';
+      } else {
+        var cls  = it.profit >= 0 ? 'profit-pos' : 'profit-neg';
+        var rbcl = it.profit >= 0 ? 'pos' : 'neg';
+        profitHtml = '<span class="' + cls + '">¥' + it.profit.toLocaleString('ja-JP') + '</span>'
+          + '<span class="rate-badge ' + rbcl + '">' + it.profitRate.toFixed(1) + '%</span>';
+      }
+
+      var daysBadge = '';
+      if (it.listedDays > 0) {
+        var dcls = it.listedDays < 14 ? 'days-ok' : it.listedDays < 30 ? 'days-warn' : 'days-over';
+        daysBadge = '<span class="days-badge ' + dcls + '">' + it.listedDays + '日</span>';
+      } else {
+        daysBadge = '<span style="color:var(--muted);font-size:11px">—</span>';
+      }
+
+      return '<tr>'
+        + '<td style="color:var(--muted);font-size:11px">' + (i+1) + '</td>'
+        + '<td class="img-cell">' + img + '</td>'
+        + '<td class="name-cell" title="' + escHtml(it.itemName) + '">' + escHtml(it.itemName) + '</td>'
+        + '<td class="right" style="color:var(--yellow)">¥' + it.currentPrice.toLocaleString('ja-JP') + '</td>'
+        + '<td class="right" style="color:var(--muted)">¥' + it.mercariRev.toLocaleString('ja-JP') + '</td>'
+        + '<td class="cost-cell">' + renderCostCell(it) + '</td>'
+        + '<td class="right profit-cell">' + profitHtml + '</td>'
+        + '<td class="right">' + daysBadge + '</td>'
+        + '</tr>';
+    }).join('');
+
+    body.querySelectorAll('.cost-display').forEach(function(el) {
+      el.addEventListener('click', function() { openCostEditor(el.dataset.id); });
+    });
+    body.querySelectorAll('.save-btn').forEach(function(el) {
+      el.addEventListener('click', function() { saveCost(el.dataset.id); });
+    });
+    body.querySelectorAll('.cost-input').forEach(function(el) {
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') saveCost(el.dataset.id);
+        if (e.key === 'Escape') closeCostEditor(el.dataset.id);
+      });
+    });
+  }
+
+  function renderCostCell(it) {
+    var pLabel = it.hasCost ? '¥' + it.purchasePrice.toLocaleString('ja-JP') : '—';
+    var sLabel = it.shippingCost > 0 ? ' + ¥' + it.shippingCost.toLocaleString('ja-JP') : '';
+    return '<div class="cost-display" data-id="' + escHtml(it.itemId) + '">'
+        + '<span style="font-family:\'SF Mono\',monospace;font-size:12px;color:' + (it.hasCost ? 'var(--text)' : 'var(--muted)') + '">'
+        + pLabel + sLabel + '</span>'
+        + '<span class="edit-icon">✏️</span>'
+      + '</div>'
+      + '<div class="cost-form" id="form-' + escHtml(it.itemId) + '">'
+        + '<input class="cost-input" id="inp-purchase-' + escHtml(it.itemId) + '" data-id="' + escHtml(it.itemId) + '" type="number" min="0" placeholder="仕入れ値" value="' + it.purchasePrice + '">'
+        + '<input class="cost-input" id="inp-ship-' + escHtml(it.itemId) + '" data-id="' + escHtml(it.itemId) + '" type="number" min="0" placeholder="送料" value="' + it.shippingCost + '" style="width:64px">'
+        + '<button class="save-btn" data-id="' + escHtml(it.itemId) + '">保存</button>'
+      + '</div>';
+  }
+
+  function openCostEditor(id) {
+    var form = document.getElementById('form-' + id);
+    if (!form) return;
+    form.classList.add('active');
+    form.previousElementSibling.style.display = 'none';
+    var inp = document.getElementById('inp-purchase-' + id);
+    if (inp) inp.focus();
+  }
+
+  function closeCostEditor(id) {
+    var form = document.getElementById('form-' + id);
+    if (!form) return;
+    form.classList.remove('active');
+    form.previousElementSibling.style.display = '';
+  }
+
+  async function saveCost(id) {
+    var purchaseEl = document.getElementById('inp-purchase-' + id);
+    var shipEl     = document.getElementById('inp-ship-' + id);
+    if (!purchaseEl) return;
+    var body = {
+      itemId:        id,
+      purchasePrice: parseInt(purchaseEl.value) || 0,
+      shippingCost:  parseInt(shipEl ? shipEl.value : 0) || 0,
+    };
+    try {
+      await fetch('/api/costs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      await loadData();
+    } catch(e) {
+      alert('保存失敗: ' + e.message);
+    }
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadData();
+</script>
+
+</div><!-- /#app-content -->
+
+<button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
+  <span class="ham-line"></span><span class="ham-line"></span><span class="ham-line"></span>
+</button>
+<div class="nav-backdrop" id="navBackdrop" onclick="navClose()"></div>
+<nav class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <div class="nav-drawer-head">
+    <div class="nav-drawer-logo">🏷️</div>
+    <div><div class="nav-drawer-title">メルカリ 値引きツール</div><div class="nav-drawer-sub">管理メニュー</div></div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="/"         data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>出品中商品一覧</a>
+    <a class="nav-link" href="/pl"       data-navpath="/pl"><span class="nav-link-icon">💹</span>利益管理 (P&amp;L)</a>
+    <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
+  </div>
+</nav>
+<script>
+(function(){
+  window.navToggle = function() {
+    var open = document.getElementById('navDrawer').classList.toggle('is-open');
+    document.getElementById('hamBtn').classList.toggle('is-open', open);
+    document.getElementById('navBackdrop').classList.toggle('is-open', open);
+    document.getElementById('navDrawer').setAttribute('aria-hidden', String(!open));
+  };
+  window.navClose = function() {
+    document.getElementById('navDrawer').classList.remove('is-open');
+    document.getElementById('hamBtn').classList.remove('is-open');
+    document.getElementById('navBackdrop').classList.remove('is-open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  };
+  (function(){
+    var p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){
+      el.classList.toggle('is-active', el.dataset.navpath === p);
+    });
+  })();
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') navClose(); });
+  if (window.__SPA_INITIALIZED__) return;
+  window.__SPA_INITIALIZED__ = true;
+  window.SPA = { _esMap:{}, _logs:{research:[],discount:[],csv:[]}, _runningSet:new Set(), connect:function(){}, isRunning:function(){return false;}, isAnyRunning:function(){return false;}, getLines:function(){return[];}, clearLog:function(){} };
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[data-navpath]'); if(!link)return;
+    var href=link.getAttribute('href'); if(!href)return;
+    e.preventDefault(); if(href===location.pathname){navClose();return;}
+    _spaNavigate(href);
+  });
+  function _spaNavigate(href){
+    fetch(href).then(function(r){return r.text();}).then(function(html){
+      var doc=new DOMParser().parseFromString(html,'text/html');
+      var nc=doc.getElementById('app-content'),cc=document.getElementById('app-content');
+      if(!nc||!cc){location.href=href;return;}
+      if(typeof window.__pageCleanup==='function'){window.__pageCleanup();window.__pageCleanup=null;}
+      var newCss=Array.from(doc.head.querySelectorAll('style')).map(function(s){return s.textContent;}).join('\n');
+      var ps=document.getElementById('page-style');
+      if(ps){ps.textContent=newCss;}else{var ns=document.createElement('style');ns.id='page-style';ns.textContent=newCss;document.head.appendChild(ns);}
+      cc.replaceWith(nc); history.pushState({},'',href); document.title=doc.title;
+      document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){el.classList.toggle('is-active',el.dataset.navpath===href);});
+      nc.querySelectorAll('script').forEach(function(s){var ns=document.createElement('script');ns.textContent=s.textContent;document.head.appendChild(ns);ns.remove();});
+      navClose();
+    }).catch(function(){location.href=href;});
+  }
+  window.addEventListener('popstate',function(){_spaNavigate(location.pathname);});
+})();
+</script>
+</body>
+</html>

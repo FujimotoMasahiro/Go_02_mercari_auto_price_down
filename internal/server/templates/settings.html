@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>設定 — メルカリ自動値引きツール</title>
-  <style>
+  <style id="page-style">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -258,6 +258,8 @@
 </head>
 <body>
 
+<div id="app-content">
+
 <header>
   <div class="logo">⚙️</div>
   <div>
@@ -339,7 +341,62 @@
 
 <footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
 
-<!-- ─── Navigation Drawer ──────────────────────────────── -->
+<script>
+  var headlessToggle     = document.getElementById('headlessToggle');
+  var minPriceInput      = document.getElementById('minPriceInput');
+  var priceDecreaseInput = document.getElementById('priceDecreaseInput');
+  var saveBtn            = document.getElementById('saveBtn');
+  var feedbackEl         = document.getElementById('feedback');
+
+  async function loadConfig() {
+    try {
+      var res = await fetch('/api/config');
+      var cfg = await res.json();
+      headlessToggle.checked   = !!cfg.headless;
+      minPriceInput.value      = cfg.min_price             != null ? cfg.min_price : 3000;
+      priceDecreaseInput.value = cfg.price_decrease_amount != null ? cfg.price_decrease_amount : 100;
+    } catch (err) {
+      showFeedback('読み込み失敗: ' + err.message, false);
+    }
+  }
+
+  async function saveConfig() {
+    saveBtn.disabled = true;
+    feedbackEl.className = 'feedback';
+    feedbackEl.textContent = '';
+    var body = {
+      headless:              headlessToggle.checked,
+      min_price:             parseInt(minPriceInput.value)      || 0,
+      price_decrease_amount: parseInt(priceDecreaseInput.value) || 0,
+    };
+    try {
+      var res  = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      var data = await res.json();
+      if (!res.ok) showFeedback('保存失敗: ' + (data.error || res.statusText), false);
+      else showFeedback('✓ 保存しました', true);
+    } catch (err) {
+      showFeedback('保存失敗: ' + err.message, false);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  function showFeedback(msg, ok) {
+    feedbackEl.textContent = msg;
+    feedbackEl.className   = 'feedback show ' + (ok ? 'ok' : 'err');
+    if (ok) setTimeout(function(){ feedbackEl.className = 'feedback'; }, 3000);
+  }
+
+  loadConfig();
+</script>
+
+</div><!-- /#app-content -->
+
+<!-- ═══════════════════════════════════ NAV DRAWER ════════════════════════════════════ -->
 <button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
   <span class="ham-line"></span>
   <span class="ham-line"></span>
@@ -355,95 +412,93 @@
     </div>
   </div>
   <div class="nav-links">
-    <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
-    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
-    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/"         data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>出品中商品一覧</a>
+    <a class="nav-link" href="/pl"       data-navpath="/pl"><span class="nav-link-icon">💹</span>利益管理 (P&amp;L)</a>
     <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
     <div class="nav-sep"></div>
     <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
   </div>
 </nav>
-
 <script>
-  // ── Nav ──────────────────────────────────────────────────
-  (function() {
-    const p = location.pathname;
-    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
-      if (el.dataset.navpath === p) el.classList.add('is-active');
-    });
-  })();
-  function navToggle() {
-    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+(function(){
+  window.navToggle = function() {
+    var open = document.getElementById('navDrawer').classList.toggle('is-open');
     document.getElementById('hamBtn').classList.toggle('is-open', open);
     document.getElementById('navBackdrop').classList.toggle('is-open', open);
-    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
-  }
-  function navClose() {
+    document.getElementById('navDrawer').setAttribute('aria-hidden', String(!open));
+  };
+  window.navClose = function() {
     document.getElementById('navDrawer').classList.remove('is-open');
     document.getElementById('hamBtn').classList.remove('is-open');
     document.getElementById('navBackdrop').classList.remove('is-open');
     document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  };
+  (function(){
+    var p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){
+      el.classList.toggle('is-active', el.dataset.navpath === p);
+    });
+  })();
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') navClose(); });
+  if (window.__SPA_INITIALIZED__) return;
+  window.__SPA_INITIALIZED__ = true;
+  window.SPA = {
+    _esMap:{}, _logs:{research:[],discount:[],csv:[]}, _runningSet:new Set(),
+    connect: function(t) {
+      var ep=t==='research'?'/events/research':'/events';
+      this._runningSet.add(t); this._logs[t]=[];
+      if(this._esMap[t]){this._esMap[t].close();delete this._esMap[t];}
+      var self=this, es=new EventSource(ep); this._esMap[t]=es;
+      es.onmessage=function(e){
+        if(e.data==='__DONE__'){self._runningSet.delete(t);document.dispatchEvent(new CustomEvent('spa:done',{detail:{taskType:t,ok:true}}));es.close();delete self._esMap[t];return;}
+        self._logs[t].push(e.data);document.dispatchEvent(new CustomEvent('spa:log',{detail:{taskType:t,line:e.data}}));
+      };
+      es.onerror=function(){self._runningSet.delete(t);document.dispatchEvent(new CustomEvent('spa:done',{detail:{taskType:t,ok:false}}));es.close();delete self._esMap[t];};
+    },
+    isRunning:function(t){return this._runningSet.has(t);},
+    isAnyRunning:function(){return this._runningSet.size>0;},
+    getLines:function(t){return(this._logs[t]||[]).slice();},
+    clearLog:function(t){this._logs[t]=[];}
+  };
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[data-navpath]'); if(!link)return;
+    var href=link.getAttribute('href'); if(!href)return;
+    e.preventDefault(); if(href===location.pathname){navClose();return;}
+    _spaNavigate(href);
+  });
+  function _spaNavigate(href){
+    if(typeof window.__spaIntercept==='function'&&window.__spaIntercept(href))return;
+    fetch(href).then(function(r){return r.text();}).then(function(html){
+      var doc=new DOMParser().parseFromString(html,'text/html');
+      var nc=doc.getElementById('app-content'),cc=document.getElementById('app-content');
+      if(!nc||!cc){location.href=href;return;}
+      if(typeof window.__pageCleanup==='function'){window.__pageCleanup();window.__pageCleanup=null;}
+      var newCss=Array.from(doc.head.querySelectorAll('style')).map(function(s){return s.textContent;}).join('\n');
+      var ps=document.getElementById('page-style');
+      if(ps){ps.textContent=newCss;}else{var ns=document.createElement('style');ns.id='page-style';ns.textContent=newCss;document.head.appendChild(ns);}
+      cc.replaceWith(nc); history.pushState({},'',href); document.title=doc.title;
+      document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){el.classList.toggle('is-active',el.dataset.navpath===href);});
+      nc.querySelectorAll('script').forEach(function(s){var ns=document.createElement('script');ns.textContent=s.textContent;document.head.appendChild(ns);ns.remove();});
+      navClose();
+    }).catch(function(){location.href=href;});
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
-
-  // ── Config ───────────────────────────────────────────────
-  const headlessToggle     = document.getElementById('headlessToggle');
-  const minPriceInput      = document.getElementById('minPriceInput');
-  const priceDecreaseInput = document.getElementById('priceDecreaseInput');
-  const saveBtn            = document.getElementById('saveBtn');
-  const feedback           = document.getElementById('feedback');
-
-  async function loadConfig() {
-    try {
-      const res  = await fetch('/api/config');
-      const cfg  = await res.json();
-      headlessToggle.checked   = !!cfg.headless;
-      minPriceInput.value      = cfg.min_price             ?? 3000;
-      priceDecreaseInput.value = cfg.price_decrease_amount ?? 100;
-    } catch (err) {
-      showFeedback('読み込み失敗: ' + err.message, false);
-    }
-  }
-
-  async function saveConfig() {
-    saveBtn.disabled = true;
-    feedback.className = 'feedback';
-    feedback.textContent = '';
-
-    const body = {
-      headless:              headlessToggle.checked,
-      min_price:             parseInt(minPriceInput.value)      || 0,
-      price_decrease_amount: parseInt(priceDecreaseInput.value) || 0,
-    };
-
-    try {
-      const res  = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showFeedback('保存失敗: ' + (data.error || res.statusText), false);
-      } else {
-        showFeedback('✓ 保存しました', true);
-      }
-    } catch (err) {
-      showFeedback('保存失敗: ' + err.message, false);
-    } finally {
-      saveBtn.disabled = false;
-    }
-  }
-
-  function showFeedback(msg, ok) {
-    feedback.textContent = msg;
-    feedback.className   = 'feedback show ' + (ok ? 'ok' : 'err');
-    if (ok) {
-      setTimeout(() => { feedback.className = 'feedback'; }, 3000);
-    }
-  }
-
-  loadConfig();
+  window.addEventListener('popstate',function(){_spaNavigate(location.pathname);});
+  // ── Global status bar ─────────────────────────────────────
+  var _ssbEl=document.createElement('div'); _ssbEl.id='spa-status-bar';
+  _ssbEl.innerHTML='<div class="ssb-row"><span class="ssb-dot"></span><span class="ssb-label">—</span><span class="ssb-line">—</span><button class="ssb-close" onclick="document.getElementById(\'spa-status-bar\').classList.remove(\'is-visible\')">✕</button></div><div class="ssb-track"><div class="ssb-fill"></div></div>';
+  document.body.appendChild(_ssbEl);
+  var _ssbSt=document.createElement('style');
+  _ssbSt.textContent='#spa-status-bar{position:fixed;bottom:-90px;left:50%;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));background:#1a1d27;border:1px solid #2e3250;border-radius:12px;padding:12px 16px 10px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:1500;transition:bottom .3s cubic-bezier(.4,0,.2,1);pointer-events:none}#spa-status-bar.is-visible{bottom:16px;pointer-events:all}.ssb-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}.ssb-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;flex-shrink:0;animation:ssbPulse 1s infinite}#spa-status-bar.is-done .ssb-dot{background:#22c55e;animation:none}#spa-status-bar.is-error .ssb-dot{background:#ef4444;animation:none}@keyframes ssbPulse{0%,100%{opacity:1}50%{opacity:.3}}.ssb-label{font-size:12px;font-weight:700;color:#e2e8f0;flex-shrink:0}.ssb-line{font-size:11px;color:#64748b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SF Mono","Menlo",monospace}.ssb-close{background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0}.ssb-close:hover{color:#e2e8f0}.ssb-track{height:3px;background:#22263a;border-radius:999px;overflow:hidden}.ssb-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#818cf8)}#spa-status-bar.is-done .ssb-fill{background:#22c55e}#spa-status-bar.is-error .ssb-fill{background:#ef4444}#spa-status-bar:not(.is-done):not(.is-error) .ssb-fill{width:40%;animation:ssbSlide 1.5s ease-in-out infinite}#spa-status-bar.is-done .ssb-fill,#spa-status-bar.is-error .ssb-fill{width:100%;transition:width .3s;animation:none}@keyframes ssbSlide{0%{margin-left:-40%}100%{margin-left:100%}}';
+  document.head.appendChild(_ssbSt);
+  var _ssbLbls={research:'売れ筋リサーチ中',discount:'値引き実行中',csv:'CSV更新中'};
+  var _ssbBar=document.getElementById('spa-status-bar');
+  document.addEventListener('spa:log',function(e){if(!e.detail||!_ssbBar)return;_ssbBar.querySelector('.ssb-label').textContent=_ssbLbls[e.detail.taskType]||e.detail.taskType;_ssbBar.querySelector('.ssb-line').textContent=e.detail.line;_ssbBar.classList.remove('is-done','is-error');_ssbBar.classList.add('is-visible');});
+  document.addEventListener('spa:done',function(e){if(!e.detail||!_ssbBar)return;var label=_ssbLbls[e.detail.taskType]||e.detail.taskType;var msg=e.detail.ok?'処理が完了しました':'エラーが発生しました';_ssbBar.querySelector('.ssb-label').textContent=label;_ssbBar.querySelector('.ssb-line').textContent=msg;_ssbBar.classList.remove('is-done','is-error');_ssbBar.classList.add(e.detail.ok?'is-done':'is-error');setTimeout(function(){if(_ssbBar)_ssbBar.classList.remove('is-visible','is-done','is-error');},4000);_spaPlaySound(e.detail.ok);_spaNotify(label,msg,e.detail.ok);});
+  function _spaPlaySound(ok){try{var ac=new(window.AudioContext||window.webkitAudioContext)();if(ok){[[660,0],[880,0.18]].forEach(function(p){var o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=p[0];g.gain.setValueAtTime(0.22,ac.currentTime+p[1]);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+p[1]+0.45);o.start(ac.currentTime+p[1]);o.stop(ac.currentTime+p[1]+0.45);});}else{var o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.type='sine';o.frequency.value=320;g.gain.setValueAtTime(0.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.55);o.start(ac.currentTime);o.stop(ac.currentTime+0.55);}}catch(e){}}
+  function _spaNotify(label,body,ok){if(!('Notification' in window))return;var title=label+(ok?' 完了 ✓':' エラー ✗');if(Notification.permission==='granted'){new Notification(title,{body:body,silent:true});}else if(Notification.permission!=='denied'){Notification.requestPermission().then(function(p){if(p==='granted')new Notification(title,{body:body,silent:true});});}}
+  if('Notification' in window&&Notification.permission==='default'){Notification.requestPermission();}
+})();
 </script>
 </body>
 </html>

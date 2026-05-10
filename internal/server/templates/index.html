@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>メルカリ自動値引きツール</title>
-  <style>
+  <style id="page-style">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -286,6 +286,8 @@
 </head>
 <body>
 
+<div id="app-content">
+
 <!-- Header -->
 <header>
   <div class="logo">🏷️</div>
@@ -299,10 +301,10 @@
 <div class="section-label">メニュー</div>
 <div class="menu-grid">
 
-  <a class="menu-card" href="/products">
+  <a class="menu-card" href="/products" data-navpath="/products">
     <div class="menu-card-icon icon-green">📋</div>
-    <div class="menu-card-title">商品一覧</div>
-    <div class="menu-card-desc">CSVの作成・更新や、商品ごとの値引き実行を行います。対象外商品の除外設定も可能です。</div>
+    <div class="menu-card-title">出品中商品一覧</div>
+    <div class="menu-card-desc">CSVの作成・更新や値引き実行、対象外設定ができます。値下げ履歴も一覧で確認できます。</div>
     <div class="menu-card-arrow">
       開く
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -312,20 +314,7 @@
     </div>
   </a>
 
-  <a class="menu-card" href="/history">
-    <div class="menu-card-icon icon-purple">📈</div>
-    <div class="menu-card-title">値下げ履歴</div>
-    <div class="menu-card-desc">いつ・どの商品が・何円になったかを確認できます。最新5件を表示し、過去50件まで遡れます。</div>
-    <div class="menu-card-arrow">
-      開く
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </div>
-  </a>
-
-  <a class="menu-card" href="/research">
+  <a class="menu-card" href="/research" data-navpath="/research">
     <div class="menu-card-icon icon-blue">🔍</div>
     <div class="menu-card-title">売れ筋リサーチ</div>
     <div class="menu-card-desc">カテゴリー別に売り切れ商品を最大5ページ分調査。売れている商品トレンドを把握して売上・利益を最大化。</div>
@@ -372,21 +361,20 @@
 <footer>Mercari Auto Price Down Tool — ローカル管理UI</footer>
 
 <script>
-  const fileTree    = document.getElementById('fileTree');
-  const logContent  = document.getElementById('logContent');
-  const viewerFname = document.getElementById('viewerFilename');
-  const scrollBtn   = document.getElementById('scrollBottomBtn');
-  let activeItem    = null;
+  var fileTree    = document.getElementById('fileTree');
+  var logContent  = document.getElementById('logContent');
+  var viewerFname = document.getElementById('viewerFilename');
+  var scrollBtn   = document.getElementById('scrollBottomBtn');
+  var activeItem  = null;
+  var _logListTimer = null;
 
-  async function loadLogList() {
+  function loadLogList() {
     fileTree.innerHTML = '<div class="tree-empty">読み込み中…</div>';
-    try {
-      const res  = await fetch('/logs');
-      const data = await res.json();
+    fetch('/logs').then(function(res){ return res.json(); }).then(function(data){
       renderFileTree(data.dirs || []);
-    } catch (err) {
-      fileTree.innerHTML = `<div class="tree-empty">エラー: ${err.message}</div>`;
-    }
+    }).catch(function(err){
+      fileTree.innerHTML = '<div class="tree-empty">エラー: ' + err.message + '</div>';
+    });
   }
 
   function renderFileTree(dirs) {
@@ -395,46 +383,44 @@
       return;
     }
     fileTree.innerHTML = '';
-    dirs.forEach(dir => {
-      const header = document.createElement('div');
+    dirs.forEach(function(dir) {
+      var header = document.createElement('div');
       header.className = 'tree-dir';
-      header.innerHTML = `<span class="tree-dir-icon">📁</span>${escHtml(dir.name)}`;
+      header.innerHTML = '<span class="tree-dir-icon">📁</span>' + escHtml(dir.name);
       fileTree.appendChild(header);
       if (!dir.files || dir.files.length === 0) {
-        const empty = document.createElement('div');
+        var empty = document.createElement('div');
         empty.style.cssText = 'padding:4px 20px 8px;font-size:11px;color:var(--muted)';
         empty.textContent = 'ファイルなし';
         fileTree.appendChild(empty);
         return;
       }
-      dir.files.forEach(fname => {
-        const path = dir.name + '/' + fname;
-        const item = document.createElement('div');
+      dir.files.forEach(function(fname) {
+        var path = dir.name + '/' + fname;
+        var item = document.createElement('div');
         item.className = 'file-item' + (path === activeItem ? ' active' : '');
         item.dataset.path = path;
-        item.innerHTML = `<span class="file-icon">📄</span>${escHtml(fname)}`;
-        item.onclick = () => openLogFile(path, item);
+        item.innerHTML = '<span class="file-icon">📄</span>' + escHtml(fname);
+        item.onclick = function(){ openLogFile(path, item); };
         fileTree.appendChild(item);
       });
     });
   }
 
-  async function openLogFile(path, itemEl) {
-    document.querySelectorAll('.file-item.active').forEach(el => el.classList.remove('active'));
+  function openLogFile(path, itemEl) {
+    document.querySelectorAll('.file-item.active').forEach(function(el){ el.classList.remove('active'); });
     itemEl.classList.add('active');
     activeItem = path;
     viewerFname.textContent = path;
     logContent.textContent = '読み込み中…';
     scrollBtn.style.display = 'none';
-    try {
-      const res  = await fetch('/logfile?path=' + encodeURIComponent(path));
-      const data = await res.json();
+    fetch('/logfile?path=' + encodeURIComponent(path)).then(function(res){ return res.json(); }).then(function(data){
       logContent.textContent = data.content || '（空のファイル）';
       logContent.scrollTop   = logContent.scrollHeight;
       scrollBtn.style.display = 'block';
-    } catch (err) {
+    }).catch(function(err){
       logContent.textContent = 'エラー: ' + err.message;
-    }
+    });
   }
 
   function scrollToBottom() { logContent.scrollTop = logContent.scrollHeight; }
@@ -444,8 +430,14 @@
   }
 
   loadLogList();
-  setInterval(loadLogList, 60_000);
+  _logListTimer = setInterval(loadLogList, 60000);
+
+  window.__pageCleanup = function() {
+    if (_logListTimer) { clearInterval(_logListTimer); _logListTimer = null; }
+  };
 </script>
+
+</div><!-- /#app-content -->
 
 <!-- ─── Navigation Drawer ──────────────────────────────── -->
 <button class="ham-btn" id="hamBtn" onclick="navToggle()" aria-label="メニューを開く">
@@ -464,33 +456,145 @@
   </div>
   <div class="nav-links">
     <a class="nav-link" href="/" data-navpath="/"><span class="nav-link-icon">🏠</span>ホーム</a>
-    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>商品一覧</a>
-    <a class="nav-link" href="/history" data-navpath="/history"><span class="nav-link-icon">📈</span>値下げ履歴</a>
+    <a class="nav-link" href="/products" data-navpath="/products"><span class="nav-link-icon">📋</span>出品中商品一覧</a>
+    <a class="nav-link" href="/pl"       data-navpath="/pl"><span class="nav-link-icon">💹</span>利益管理 (P&amp;L)</a>
     <a class="nav-link" href="/research" data-navpath="/research"><span class="nav-link-icon">🔍</span>売れ筋リサーチ</a>
     <div class="nav-sep"></div>
     <a class="nav-link" href="/settings" data-navpath="/settings"><span class="nav-link-icon">⚙️</span>設定</a>
   </div>
 </nav>
 <script>
-  (function() {
-    const p = location.pathname;
-    document.querySelectorAll('.nav-link[data-navpath]').forEach(el => {
-      if (el.dataset.navpath === p) el.classList.add('is-active');
-    });
-  })();
-  function navToggle() {
-    const open = document.getElementById('navDrawer').classList.toggle('is-open');
+(function(){
+  window.navToggle = function() {
+    var open = document.getElementById('navDrawer').classList.toggle('is-open');
     document.getElementById('hamBtn').classList.toggle('is-open', open);
     document.getElementById('navBackdrop').classList.toggle('is-open', open);
-    document.getElementById('navDrawer').setAttribute('aria-hidden', !open);
-  }
-  function navClose() {
+    document.getElementById('navDrawer').setAttribute('aria-hidden', String(!open));
+  };
+  window.navClose = function() {
     document.getElementById('navDrawer').classList.remove('is-open');
     document.getElementById('hamBtn').classList.remove('is-open');
     document.getElementById('navBackdrop').classList.remove('is-open');
     document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  };
+  (function(){
+    var p = location.pathname;
+    document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){
+      el.classList.toggle('is-active', el.dataset.navpath === p);
+    });
+  })();
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') navClose(); });
+  if (window.__SPA_INITIALIZED__) return;
+  window.__SPA_INITIALIZED__ = true;
+  window.SPA = {
+    _esMap:{}, _logs:{research:[],discount:[],csv:[]}, _runningSet:new Set(),
+    connect: function(t) {
+      var ep=t==='research'?'/events/research':'/events';
+      this._runningSet.add(t); this._logs[t]=[];
+      if(this._esMap[t]){this._esMap[t].close();delete this._esMap[t];}
+      var self=this, es=new EventSource(ep); this._esMap[t]=es;
+      es.onmessage=function(e){
+        if(e.data==='__DONE__'){self._runningSet.delete(t);document.dispatchEvent(new CustomEvent('spa:done',{detail:{taskType:t,ok:true}}));es.close();delete self._esMap[t];return;}
+        self._logs[t].push(e.data);document.dispatchEvent(new CustomEvent('spa:log',{detail:{taskType:t,line:e.data}}));
+      };
+      es.onerror=function(){self._runningSet.delete(t);document.dispatchEvent(new CustomEvent('spa:done',{detail:{taskType:t,ok:false}}));es.close();delete self._esMap[t];};
+    },
+    isRunning:function(t){return this._runningSet.has(t);},
+    isAnyRunning:function(){return this._runningSet.size>0;},
+    getLines:function(t){return(this._logs[t]||[]).slice();},
+    clearLog:function(t){this._logs[t]=[];}
+  };
+  // ── Global status bar ─────────────────────────────────────
+  (function(){
+    var barEl = document.createElement('div');
+    barEl.id = 'spa-status-bar';
+    barEl.innerHTML = '<div class="ssb-row"><span class="ssb-dot"></span><span class="ssb-label">—</span><span class="ssb-line">—</span><button class="ssb-close" onclick="document.getElementById(\'spa-status-bar\').classList.remove(\'is-visible\')">✕</button></div><div class="ssb-track"><div class="ssb-fill" id="ssb-fill"></div></div>';
+    document.body.appendChild(barEl);
+    var styleEl = document.createElement('style');
+    styleEl.textContent = '#spa-status-bar{position:fixed;bottom:-90px;left:50%;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));background:#1a1d27;border:1px solid #2e3250;border-radius:12px;padding:12px 16px 10px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:1500;transition:bottom .3s cubic-bezier(.4,0,.2,1);pointer-events:none}#spa-status-bar.is-visible{bottom:16px;pointer-events:all}.ssb-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}.ssb-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;flex-shrink:0;animation:ssbPulse 1s infinite}#spa-status-bar.is-done .ssb-dot{background:#22c55e;animation:none}#spa-status-bar.is-error .ssb-dot{background:#ef4444;animation:none}@keyframes ssbPulse{0%,100%{opacity:1}50%{opacity:.3}}.ssb-label{font-size:12px;font-weight:700;color:#e2e8f0;flex-shrink:0}.ssb-line{font-size:11px;color:#64748b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SF Mono","Menlo",monospace}.ssb-close{background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0}.ssb-close:hover{color:#e2e8f0}.ssb-track{height:3px;background:#22263a;border-radius:999px;overflow:hidden}.ssb-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#818cf8)}#spa-status-bar.is-done .ssb-fill{background:#22c55e}#spa-status-bar.is-error .ssb-fill{background:#ef4444}#spa-status-bar:not(.is-done):not(.is-error) .ssb-fill{width:40%;animation:ssbSlide 1.5s ease-in-out infinite}#spa-status-bar.is-done .ssb-fill{width:100%;transition:width .3s;animation:none}#spa-status-bar.is-error .ssb-fill{width:100%;transition:width .3s;animation:none}@keyframes ssbSlide{0%{margin-left:-40%}100%{margin-left:100%}}';
+    document.head.appendChild(styleEl);
+    var _ssbLabels = {research:'売れ筋リサーチ中', discount:'値引き実行中', csv:'CSV更新中'};
+    var _ssbBar = document.getElementById('spa-status-bar');
+    document.addEventListener('spa:log', function(e) {
+      if (!e.detail || !_ssbBar) return;
+      _ssbBar.querySelector('.ssb-label').textContent = _ssbLabels[e.detail.taskType] || e.detail.taskType;
+      _ssbBar.querySelector('.ssb-line').textContent  = e.detail.line;
+      _ssbBar.classList.remove('is-done','is-error');
+      _ssbBar.classList.add('is-visible');
+    });
+    document.addEventListener('spa:done', function(e) {
+      if (!e.detail || !_ssbBar) return;
+      var label = _ssbLabels[e.detail.taskType] || e.detail.taskType;
+      var msg   = e.detail.ok ? '処理が完了しました' : 'エラーが発生しました';
+      _ssbBar.querySelector('.ssb-label').textContent = label;
+      _ssbBar.querySelector('.ssb-line').textContent  = msg;
+      _ssbBar.classList.remove('is-done','is-error');
+      _ssbBar.classList.add(e.detail.ok ? 'is-done' : 'is-error');
+      setTimeout(function(){ _ssbBar.classList.remove('is-visible','is-done','is-error'); }, 4000);
+      _spaPlaySound(e.detail.ok);
+      _spaNotify(label, msg, e.detail.ok);
+    });
+    function _spaPlaySound(ok) {
+      try {
+        var ac = new (window.AudioContext || window.webkitAudioContext)();
+        if (ok) {
+          [[660,0],[880,0.18]].forEach(function(p){
+            var o=ac.createOscillator(), g=ac.createGain();
+            o.connect(g); g.connect(ac.destination);
+            o.type='sine'; o.frequency.value=p[0];
+            g.gain.setValueAtTime(0.22, ac.currentTime+p[1]);
+            g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+p[1]+0.45);
+            o.start(ac.currentTime+p[1]); o.stop(ac.currentTime+p[1]+0.45);
+          });
+        } else {
+          var o=ac.createOscillator(), g=ac.createGain();
+          o.connect(g); g.connect(ac.destination);
+          o.type='sine'; o.frequency.value=320;
+          g.gain.setValueAtTime(0.25, ac.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+0.55);
+          o.start(ac.currentTime); o.stop(ac.currentTime+0.55);
+        }
+      } catch(e){}
+    }
+    function _spaNotify(label, body, ok) {
+      if (!('Notification' in window)) return;
+      var title = label + (ok ? ' 完了 ✓' : ' エラー ✗');
+      if (Notification.permission === 'granted') {
+        new Notification(title, {body: body, silent: true});
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(function(p){
+          if (p === 'granted') new Notification(title, {body: body, silent: true});
+        });
+      }
+    }
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  })();
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[data-navpath]'); if(!link)return;
+    var href=link.getAttribute('href'); if(!href)return;
+    e.preventDefault(); if(href===location.pathname){navClose();return;}
+    _spaNavigate(href);
+  });
+  function _spaNavigate(href){
+    if (typeof window.__spaIntercept === 'function' && window.__spaIntercept(href)) return;
+    fetch(href).then(function(r){return r.text();}).then(function(html){
+      var doc=new DOMParser().parseFromString(html,'text/html');
+      var nc=doc.getElementById('app-content'),cc=document.getElementById('app-content');
+      if(!nc||!cc){location.href=href;return;}
+      if(typeof window.__pageCleanup==='function'){window.__pageCleanup();window.__pageCleanup=null;}
+      var newCss=Array.from(doc.head.querySelectorAll('style')).map(function(s){return s.textContent;}).join('\n');
+      var ps=document.getElementById('page-style');
+      if(ps){ps.textContent=newCss;}else{var ns=document.createElement('style');ns.id='page-style';ns.textContent=newCss;document.head.appendChild(ns);}
+      cc.replaceWith(nc); history.pushState({},'',href); document.title=doc.title;
+      document.querySelectorAll('.nav-link[data-navpath]').forEach(function(el){el.classList.toggle('is-active',el.dataset.navpath===href);});
+      nc.querySelectorAll('script').forEach(function(s){var ns=document.createElement('script');ns.textContent=s.textContent;document.head.appendChild(ns);ns.remove();});
+      navClose();
+    }).catch(function(){location.href=href;});
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') navClose(); });
+  window.addEventListener('popstate',function(){_spaNavigate(location.pathname);});
+})();
 </script>
 </body>
 </html>
