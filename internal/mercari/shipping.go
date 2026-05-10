@@ -2,15 +2,21 @@ package mercari
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
+	"mercari-pricelower/internal/config"
+	"mercari-pricelower/internal/costs"
 	"mercari-pricelower/internal/logger"
 )
 
@@ -329,4 +335,132 @@ func estimateCost(method string, price int) int {
 	default:
 		return 600
 	}
+}
+
+// EstimateAllMissing は最新CSVの出品一覧を読み込み、
+// 送料が未設定（shippingCost == 0）の商品について自動推定を実行して costs.json に保存します。
+// バッチ処理から呼び出すことを想定しています。
+func EstimateAllMissing() error {
+	ensureLogger()
+
+	// ── 最新CSVから出品商品一覧を取得 ─────────────────────────────────────
+	csvDir := config.DirCSV
+	entries, err := os.ReadDir(csvDir)
+	if err != nil {
+		return fmt.Errorf("CSVディレクトリ読み込み失敗: %w", err)
+	}
+	var csvFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".csv") {
+			csvFiles = append(csvFiles, e.Name())
+		}
+	}
+	if len(csvFiles) == 0 {
+		if appLogger != nil {
+			appLogger.Info("送料推定バッチ", "スキップ", "CSVファイルが見つかりません")
+		}
+		return nil
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(csvFiles)))
+
+	f, err := os.Open(filepath.Join(csvDir, csvFiles[0]))
+	if err != nil {
+		return fmt.Errorf("CSV読み込み失敗: %w", err)
+	}
+	records, err := csv.NewReader(f).ReadAll()
+	f.Close()
+	if err != nil {
+		return fmt.Errorf("CSV解析失敗: %w", err)
+	}
+
+	// id → {name, price}
+	type listing struct {
+		name  string
+		price int
+	}
+	items := make(map[string]listing)
+	for i, row := range records {
+		if i == 0 || len(row) < 3 {
+			continue
+		}
+		p := parsePriceText(row[2])
+		items[row[0]] = listing{name: row[1], price: p}
+	}
+
+	// ── 送料未設定の商品を抽出 ────────────────────────────────────────────
+	cb, _ := costs.Load()
+	type target struct {
+		id    string
+		name  string
+		price int
+	}
+	var targets []target
+	for id, it := range items {
+		c := cb[id]
+		if c.ShippingCost == 0 {
+			targets = append(targets, target{id, it.name, it.price})
+		}
+	}
+
+	if len(targets) == 0 {
+		if appLogger != nil {
+			appLogger.Info("送料推定バッチ", "スキップ", "送料未設定の商品なし")
+		}
+		return nil
+	}
+
+	if appLogger != nil {
+		appLogger.Info("送料推定バッチ", "対象件数", fmt.Sprintf("%d件", len(targets)))
+	}
+
+	// ── Chrome 起動確認 ───────────────────────────────────────────────────
+	if !isChromeRunning() {
+		launchChrome()
+		if err := waitForPort("localhost:9222", 10*time.Second); err != nil {
+			return fmt.Errorf("Chrome起動タイムアウト: %w", err)
+		}
+	}
+
+	// ── 各商品の送料を推定して保存 ────────────────────────────────────────
+	updated := 0
+	for i, t := range targets {
+		if appLogger != nil {
+			appLogger.Info("送料推定バッチ",
+				fmt.Sprintf("(%d/%d)", i+1, len(targets)),
+				fmt.Sprintf("[%s] %s ¥%d", t.id, t.name, t.price))
+		}
+
+		est, err := EstimateShipping(t.name, t.price)
+		if err != nil || est.Confidence == "none" {
+			if appLogger != nil {
+				appLogger.Warn("送料推定バッチ", t.id, "推定失敗 → スキップ")
+			}
+			continue
+		}
+
+		c := cb[t.id]
+		c.ShippingCost = est.Cost
+		c.UpdatedAt = time.Now()
+		cb[t.id] = c
+
+		if err := costs.Save(cb); err != nil {
+			if appLogger != nil {
+				appLogger.Warn("送料推定バッチ", t.id, "costs.json 保存失敗: "+err.Error())
+			}
+		} else {
+			updated++
+		}
+
+		if appLogger != nil {
+			appLogger.Info("送料推定バッチ", t.id,
+				fmt.Sprintf("→ %s ¥%d (信頼度:%s, %d件参照)", est.Method, est.Cost, est.Confidence, est.SampleSize))
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if appLogger != nil {
+		appLogger.Info("送料推定バッチ", "完了", fmt.Sprintf("%d/%d件 推定済み", updated, len(targets)))
+	}
+	return nil
 }
