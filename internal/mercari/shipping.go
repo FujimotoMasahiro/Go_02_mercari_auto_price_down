@@ -44,12 +44,16 @@ func ensureLogger() {
 }
 
 // EstimateShipping は itemName と price を元に配送方法・送料を推定します。
-// Chrome が未起動の場合は自動で起動します。
+// Chrome が未起動の場合は自動で起動します（/tmp/chrome-debug のCookieを引き継ぎます）。
 func EstimateShipping(itemName string, price int) (ShippingEstimate, error) {
 	ensureLogger()
 
 	if !isChromeRunning() {
-		return ShippingEstimate{Confidence: "none"}, fmt.Errorf("Chrome未起動: 値引き実行またはリサーチを先に起動してください")
+		launchChrome()
+		// Chrome が DevTools ポートを開くまで待機
+		if err := waitForPort("localhost:9222", 10*time.Second); err != nil {
+			return ShippingEstimate{Confidence: "none"}, fmt.Errorf("Chrome起動タイムアウト: %w", err)
+		}
 	}
 
 	tab, err := newTabContext()
@@ -60,6 +64,12 @@ func EstimateShipping(itemName string, price int) (ShippingEstimate, error) {
 
 	ctx, cancel := context.WithTimeout(tab.ctx, 90*time.Second)
 	defer cancel()
+
+	// メルカリTOPに遷移してCookieを読み込む（ログイン状態を引き継ぐ）
+	if err := chromedp.Run(ctx, chromedp.Navigate("https://jp.mercari.com/")); err != nil {
+		return ShippingEstimate{Confidence: "none"}, fmt.Errorf("メルカリTOP遷移失敗: %w", err)
+	}
+	time.Sleep(1 * time.Second)
 
 	keywords := extractKeywords(itemName)
 	if len(keywords) == 0 {
@@ -131,19 +141,46 @@ func searchSoldCandidates(ctx context.Context, keywords []string, refPrice int) 
 	query := strings.Join(keywords, " ")
 	searchURL := "https://jp.mercari.com/search/?keyword=" + url.QueryEscape(query) + "&status=sold_out"
 
+	// research.go の extractItemsJS と同じ堅牢なセレクタパターンを使用
 	const extractJS = `(function() {
-		const cards = Array.from(document.querySelectorAll('a[href*="/item/"]'));
-		return JSON.stringify(cards.slice(0, 20).map(a => {
-			const id = (a.href.match(/\/item\/(m\w+)/) || [])[1] || '';
-			const name = (a.querySelector('[class*="itemName"],[class*="name"]') || {}).textContent || '';
-			const priceText = (a.querySelector('[class*="price"]') || {}).textContent || '';
-			return { id, name: name.trim(), priceText: priceText.trim() };
-		}).filter(x => x.id));
+		const items = [];
+		const seen = new Set();
+		const links = Array.from(document.querySelectorAll('a[href*="/item/"]'));
+		links.forEach(link => {
+			const href = link.getAttribute('href') || '';
+			const match = href.match(/\/item\/(m\w+)/);
+			if (!match) return;
+			const id = match[1];
+			if (seen.has(id)) return;
+			seen.add(id);
+			let name = '';
+			const labelEl = link.querySelector('[data-testid="item-label"]') ||
+			                link.querySelector('[data-testid="item-name"]');
+			if (labelEl) name = labelEl.textContent.trim();
+			if (!name) {
+				const al = link.getAttribute('aria-label') || '';
+				if (al && !al.includes('円')) name = al.trim();
+			}
+			const imgEl = link.querySelector('img');
+			if (!name && imgEl) {
+				let alt = (imgEl.getAttribute('alt') || '').replace(/のサムネイル$/, '').trim();
+				if (alt) name = alt;
+			}
+			if (!name) {
+				const textEl = link.querySelector('p') || link.querySelector('span');
+				if (textEl) name = textEl.textContent.trim();
+			}
+			const priceEl = link.querySelector('[data-testid="price"]') ||
+			                link.querySelector('span[class*="price"]') ||
+			                link.querySelector('[aria-label*="円"]');
+			const priceText = priceEl ? priceEl.textContent.trim() : '';
+			if (id) items.push({id, name, priceText});
+		});
+		return JSON.stringify(items.slice(0, 20));
 	})()`
 
-	// WaitVisible がタイムアウトしても固定待機後に抽出を試みる
-	navigateWithStatus(ctx, searchURL) //nolint
-	time.Sleep(2 * time.Second)
+	navigateWithStatus(ctx, searchURL)
+	time.Sleep(3 * time.Second)
 
 	var resultJSON string
 	if err := chromedp.Run(ctx, chromedp.Evaluate(extractJS, &resultJSON)); err != nil {
@@ -157,7 +194,10 @@ func searchSoldCandidates(ctx context.Context, keywords []string, refPrice int) 
 	}
 	var rawResults []rawResult
 	if err := json.Unmarshal([]byte(resultJSON), &rawResults); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("JSON parse error (raw=%q): %w", resultJSON, err)
+	}
+	if appLogger != nil {
+		appLogger.Info("送料推定", "検索ヒット数", fmt.Sprintf("%d件 (query=%q)", len(rawResults), strings.Join(keywords, " ")))
 	}
 
 	type scored struct {
@@ -185,7 +225,7 @@ func searchSoldCandidates(ctx context.Context, keywords []string, refPrice int) 
 				score++
 			}
 		}
-		if score >= 2 {
+		if score >= 1 {
 			scoredList = append(scoredList, scored{r.ID, score})
 		}
 	}
