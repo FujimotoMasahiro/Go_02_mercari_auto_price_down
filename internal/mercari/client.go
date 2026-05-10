@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -20,6 +21,21 @@ import (
 
 	"mercari-pricelower/internal/config"
 )
+
+func init() {
+	log.SetOutput(&filteredWriter{w: os.Stderr})
+}
+
+type filteredWriter struct {
+	w *os.File
+}
+
+func (fw *filteredWriter) Write(p []byte) (n int, err error) {
+	if strings.Contains(string(p), "DOM.documentUpdated") {
+		return len(p), nil
+	}
+	return fw.w.Write(p)
+}
 
 // TabInfo はChrome DevTools のタブ情報を表します。
 type TabInfo struct {
